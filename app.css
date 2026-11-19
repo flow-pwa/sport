@@ -462,3 +462,6 @@ body.has-tabs .app > * { flex-shrink: 0; }
 body.dragmode { -webkit-user-select: none; user-select: none; }
 /* Menu: ancora più giù */
 .tabbar { padding-bottom: max(calc(env(safe-area-inset-bottom) - 28px), 2px); }
+/* Nome e logo */
+.top h1.brand { display: flex; align-items: center; gap: 10px; }
+.top .logo { width: 46px; height: 26px; flex: none; }

@@ -1,7 +1,7 @@
-/* Sport — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
+/* Flow (ex Sport) — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.8.1';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.9.0';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 6;                    // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -635,8 +635,9 @@
 
   const SND_ICON = { mix: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17.5V6l10-2v11.5"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/></svg>',
     silent: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5h12l-1.6-2.2V10a4.4 4.4 0 0 0-8.8 0v4.3z"/><path d="M10.2 19.5a2 2 0 0 0 3.6 0"/></svg>' };
+  const LOGO = '<svg class="logo" viewBox="14 30 72 40" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF453A"/><stop offset=".5" stop-color="#FFB020"/><stop offset="1" stop-color="#BF5AF2"/></linearGradient></defs><path d="M50 50 C40 33 18 33 18 50 C18 67 40 67 50 50 C60 33 82 33 82 50 C82 67 60 67 50 50 Z" fill="none" stroke="url(#lg)" stroke-width="8" stroke-linejoin="round"/><circle cx="18" cy="50" r="5" fill="#F5F5F7"/></svg>';
   function topHTML(title) {
-    return `<header class="top"><h1>${title}</h1>
+    return `<header class="top"><h1 class="brand">${LOGO}${title}</h1>
       <button class="icon snd" data-act="sound" aria-label="Suono">${SND_ICON[data.sound]}</button>
       <button class="ver" id="ver">v${VERSION}</button></header>`;
   }
@@ -698,7 +699,7 @@
         <i></i><span><b>${rec.name}</b><small>${rec.desc}</small></span><em>›</em>
       </button>` : '';
     return `
-      ${topHTML('Sport')}
+      ${topHTML('Flow')}
       <p class="secname">${SECTIONS.find((s) => s.k === sec).name}</p>
       ${repeat}
       <h2>I miei</h2>${mine}
@@ -725,7 +726,7 @@
         ${mineList.map(chipHTML).join('')}
       </div>`;
     return `
-      ${topHTML('Sport')}
+      ${topHTML('Flow')}
       <p class="secname">Stretching${sk ? ` <span class="streak">${sk} ${sk === 1 ? 'giorno' : 'giorni di fila'}</span>` : ''}</p>
       ${repeat}
       <h2>Per zona</h2><div class="tiles">${Object.keys(ROUTINES).filter((k) => ROUTINES[k].g === 'z').map(rtile).join('')}</div>
@@ -918,11 +919,11 @@
 
   async function exportData() {
     const txt = JSON.stringify({ app: 'sport', v: VERSION, at: Date.now(), data }, null, 1);
-    const name = 'sport-backup-' + dkey(Date.now()) + '.json';
+    const name = 'flow-backup-' + dkey(Date.now()) + '.json';
     const file = new File([txt], name, { type: 'application/json' });
     try {
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Backup Sport' });   // iPhone: «Salva su File»
+        await navigator.share({ files: [file], title: 'Backup Flow' });   // iPhone: «Salva su File»
       } else {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(file); a.download = name;
@@ -939,7 +940,7 @@
       let inc = null;
       try { inc = JSON.parse(rd.result); } catch (e) { inc = null; }
       const d = inc && inc.app === 'sport' && inc.data;
-      if (!d || !Array.isArray(d.history) || !Array.isArray(d.saved)) { openConfirm('Questo file non è un backup di Sport.', 'Ok', null); return; }
+      if (!d || !Array.isArray(d.history) || !Array.isArray(d.saved)) { openConfirm('Questo file non è un backup di Flow.', 'Ok', null); return; }
       // unisce senza doppioni: sessioni per orario, salvati per id
       const seen = new Set(data.history.map((h) => h.at));
       const newH = d.history.filter((h) => h && h.at && TYPES[h.type] && !seen.has(h.at));
