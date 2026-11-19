@@ -1,7 +1,7 @@
 /* Sport — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.7.3';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.8.0';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 6;                    // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -141,31 +141,31 @@
   // H testa · N spalle · P bacino · B curva della schiena · E/W gomito/mano · K/F ginocchio/piede
   // hl = parti in lilla: neck back ua fa arm th sh leg (+1/2) e punti N P · d = verso delle punte (1 destra, -1 sinistra)
   const EX = {
-    'collo-lato': { a: '62,4,74,1,82,11', n: 'Collo di lato', z: 'spalle', side: 1, d: 0, hl: 'neck', p: 'H66,17 N60,28 P60,54 E76,22 W67,10 e52,41 w50,54 K55,73 F54,92 k65,73 f66,92', how: 'Orecchio verso la spalla, la mano accompagna senza tirare. Spalle basse.' },
-    'mento-petto': { a: '76,15,84,24,78,34', n: 'Mento al petto', z: 'spalle', d: 1, hl: 'neck', p: 'H69,31 N60,30 P60,55 E62,43 W64,55 e59,43 w58,55 K61,73 F60,92 k59,73 f58,92', how: 'Porta piano il mento al petto. Se vuoi, appoggia le mani dietro la testa senza tirare.' },
-    'spalla-incrociata': { a: '28,22,44,22', n: 'Braccio incrociato', z: 'spalle', side: 1, d: 0, hl: 'arm1', p: 'H60,17 N60,28 P60,54 E50,31 W38,31 e70,40 w52,31 K55,73 F54,92 k65,73 f66,92', how: 'Braccio teso davanti al petto, l’altra mano lo avvicina sopra il gomito.' },
-    tricipite: { a: '38,4,46,8', n: 'Tricipite', z: 'spalle', side: 1, d: 0, hl: 'ua1', p: 'H60,17 N60,28 P60,54 E48,9 W58,23 e72,13 w50,7 K55,73 F54,92 k65,73 f66,92', how: 'Gomito in alto, mano dietro la nuca. L’altra mano spinge piano il gomito.' },
-    'petto-muro': { a: '72,30,85,30', n: 'Petto al muro', z: 'spalle', side: 1, d: 1, wall: 44, hl: 'arm1 N', p: 'H67,17 N63,28 P60,54 E50,28 W46,15 e66,41 w68,53 K68,72 F72,92 k56,73 f53,92', how: 'Avambraccio sullo stipite all’altezza della spalla, ruota il petto in avanti.' },
-    'braccia-dietro': { a: '40,60,35,46', n: 'Braccia dietro', z: 'spalle', d: 1, hl: 'arm1 arm2 N', p: 'H64,17 N62,28 P59,54 E52,40 W44,50 e54,41 w46,51 K61,73 F60,92 k58,73 f57,92', how: 'Dita intrecciate dietro la schiena, braccia tese: apri il petto e solleva.' },
-    avambracci: { a: '95,35,100,26,92,19', n: 'Avambracci e polsi', z: 'spalle', side: 1, d: 1, hl: 'fa1', p: 'H60,17 N60,28 P60,54 E73,29 W87,29 e70,40 w87,20 K61,73 F60,92 k59,73 f58,92', how: 'Braccio teso, palmo avanti: con l’altra mano porta le dita verso di te.' },
-    gatto: { a: '60,44,60,30', n: 'Gatto-mucca', z: 'schiena', d: 1, hl: 'back', p: 'H86,72 N76,63 B60,48 P44,68 E77,77 W77,90 e74,77 w74,90 K44,90 F24,90 k47,90 f27,90', how: 'A quattro zampe: inarca la schiena in alto, poi scendi a pancia giù. Lento, col respiro.' },
-    bambino: { a: '86,68,102,72', n: 'Posizione del bambino', z: 'schiena', d: 1, hl: 'back', p: 'H80,85 N72,79 B50,60 P34,74 E88,75 W104,87 e88,73 w104,85 K58,88 F30,90 k60,88 f32,90', how: 'Seduto sui talloni, petto sulle cosce, braccia lunghe in avanti. Respira nella schiena.' },
-    cobra: { a: '90,80,90,62', n: 'Cobra', z: 'schiena', d: 1, hl: 'back', p: 'H84,56 N78,66 B70,84 P54,88 E78,78 W76,90 e75,78 w73,90 K36,90 F18,90 k37,89 f19,89', how: 'Pancia a terra, mani sotto le spalle: solleva il petto, bacino a terra, spalle basse.' },
-    torsione: { a: '48,50,40,47,34,56', n: 'Torsione da sdraiato', z: 'schiena', side: 1, top: 1, hl: 'back th2', p: 'H60,12 N60,23 P60,50 E44,24 W30,25 e76,24 w90,25 K56,70 F54,89 k40,60 f52,74', how: 'Sdraiato, braccia aperte: porta il ginocchio dall’altra parte, spalle a terra.' },
-    'ginocchia-petto': { a: '60,58,52,52,40,57', n: 'Ginocchia al petto', z: 'schiena', d: 1, hl: 'back P', p: 'H18,85 N28,87 P54,87 E40,74 W48,64 e42,76 w50,66 K44,64 F62,70 k46,66 f64,72', how: 'Sdraiato, abbraccia le ginocchia al petto. Puoi dondolare piano.' },
-    laterale: { a: '56,4,72,-4,88,8', n: 'Allungamento laterale', z: 'schiena', side: 1, d: 0, hl: 'back ua1', p: 'H71,19 N65,29 B57,41 P60,54 E60,12 W76,4 e74,42 w66,52 K54,73 F52,92 k66,73 f68,92', how: 'In piedi, braccio sopra la testa: piegati di lato senza ruotare il busto.' },
-    cane: { a: '68,32,76,24', n: 'Cane a testa in giù', z: 'schiena', d: -1, hl: 'leg1 back', p: 'H47,79 N44,68 P66,40 E36,79 W28,90 e38,80 w30,90 K78,65 F90,90 k79,66 f91,90', how: 'Mani e piedi a terra, bacino in alto. Talloni verso il pavimento, schiena lunga.' },
-    'affondo-flessori': { a: '46,58,60,58', n: 'Affondo basso', z: 'anche', side: 1, d: 1, hl: 'th2 P', p: 'H63,29 N62,40 P60,66 E70,52 W78,66 e68,53 w76,67 K80,70 F82,90 k42,88 f24,90', how: 'Un ginocchio a terra, l’altro piede avanti. Spingi il bacino in avanti, busto dritto.' },
-    figura4: { a: '86,60,80,50,68,50', n: 'Figura 4', z: 'anche', side: 1, d: 1, hl: 'th1 P', p: 'H18,85 N28,87 P54,87 E42,76 W58,68 e44,78 w60,70 K76,78 F61,66 k60,64 f80,62', how: 'Sdraiato, caviglia sul ginocchio opposto: tira la gamba sotto verso il petto.' },
-    farfalla: { a: '34,68,34,80;86,68,86,80', n: 'Farfalla', z: 'anche', d: 0, hl: 'th1 th2', p: 'H60,46 N60,57 P60,84 E50,72 W57,87 e70,72 w63,87 K38,80 F57,89 k82,80 f63,89', how: 'Seduto, piante dei piedi unite: lascia scendere le ginocchia, schiena dritta.' },
-    piccione: { a: '46,64,46,77', n: 'Piccione', z: 'anche', side: 1, d: 1, hl: 'P th1', p: 'H59,41 N58,52 P54,78 E66,70 W70,89 e64,70 w68,89 K76,86 F56,89 k34,88 f14,90', how: 'Gamba davanti piegata, l’altra tesa dietro. Bacino dritto, scendi col busto se vuoi.' },
-    squat: { a: '84,62,93,62', n: 'Squat profondo', z: 'anche', d: 1, hl: 'P th1', p: 'H70,45 N66,56 P52,80 E76,64 W70,56 e74,65 w68,57 K76,70 F64,91 k74,71 f62,91', how: 'Piedi larghi, scendi in fondo con i talloni a terra. I gomiti aprono le ginocchia.' },
-    'femorali-seduto': { a: '74,60,88,69', n: 'Femorali da seduto', z: 'gambe', d: 1, hl: 'leg1', p: 'H68,71 N60,68 B42,70 P30,86 E72,78 W84,84 e72,82 w84,86 K56,89 F84,89 k57,89 f85,89', how: 'Seduto, gambe tese: allunga le mani verso i piedi partendo dalle anche.' },
-    'femorali-supino': { a: '82,48,78,36,66,36', n: 'Femorale gamba su', z: 'gambe', side: 1, d: 1, hl: 'leg1', p: 'H18,85 N28,87 P54,87 E46,72 W60,64 e48,74 w62,66 K62,68 F70,47 k74,89 f94,89', how: 'Sdraiato, una gamba tesa in alto: tienila dietro la coscia, l’altra resta a terra.' },
-    quadricipite: { a: '36,66,38,52,50,46', n: 'Quadricipite in piedi', z: 'gambe', side: 1, d: 1, hl: 'th1', p: 'H60,16 N60,27 P60,53 E53,43 W46,58 e70,36 w81,33 K58,73 F45,57 k61,72 f60,92', how: 'In piedi, prendi la caviglia e porta il tallone al gluteo. Ginocchia vicine.' },
-    polpaccio: { a: '24,78,27,90', n: 'Polpaccio al muro', z: 'gambe', side: 1, d: 1, wall: 96, hl: 'sh2', p: 'H78,25 N70,34 P54,56 E84,36 W95,32 e83,38 w95,34 K72,72 F78,91 k43,74 f32,91', how: 'Mani al muro, una gamba dietro tesa e tallone a terra. Spingi il bacino avanti.' },
-    'affondo-laterale': { a: '44,54,44,66', n: 'Affondo laterale', z: 'gambe', side: 1, d: 0, hl: 'leg2', p: 'H58,27 N58,38 P56,64 E46,54 W36,68 e66,52 w62,64 K34,72 F32,92 k76,78 f92,92', how: 'Gambe larghe, piega un ginocchio e siediti di lato: l’altra gamba resta tesa.' },
-    piegamento: { a: '88,64,88,80', n: 'Piegamento in avanti', z: 'gambe', d: 1, hl: 'leg1', p: 'H71,84 N73,75 B78,54 P56,50 E80,83 W81,91 e78,83 w79,91 K57,71 F57,92 k55,71 f55,92', how: 'In piedi, piegati in avanti e lascia pendere testa e braccia. Ginocchia morbide.' },
+    'collo-lato': { s0: 'H60,17 N60,28 P60,54 E66,22 W62,10 e52,41 w50,54 K55,73 F54,92 k65,73 f66,92', a: '62,4,74,1,82,11', n: 'Collo di lato', z: 'spalle', side: 1, d: 0, hl: 'neck', p: 'H66,17 N60,28 P60,54 E76,22 W67,10 e52,41 w50,54 K55,73 F54,92 k65,73 f66,92', how: 'Orecchio verso la spalla, la mano accompagna senza tirare. Spalle basse.' },
+    'mento-petto': { s0: 'H61,18 N60,30 P60,55 E62,43 W64,55 e59,43 w58,55 K61,73 F60,92 k59,73 f58,92', a: '76,15,84,24,78,34', n: 'Mento al petto', z: 'spalle', d: 1, hl: 'neck', p: 'H69,31 N60,30 P60,55 E62,43 W64,55 e59,43 w58,55 K61,73 F60,92 k59,73 f58,92', how: 'Porta piano il mento al petto. Se vuoi, appoggia le mani dietro la testa senza tirare.' },
+    'spalla-incrociata': { s0: 'H60,17 N60,28 P60,54 E52,41 W50,54 e68,41 w70,54 K55,73 F54,92 k65,73 f66,92', a: '28,22,44,22', n: 'Braccio incrociato', z: 'spalle', side: 1, d: 0, hl: 'arm1', p: 'H60,17 N60,28 P60,54 E50,31 W38,31 e70,40 w52,31 K55,73 F54,92 k65,73 f66,92', how: 'Braccio teso davanti al petto, l’altra mano lo avvicina sopra il gomito.' },
+    tricipite: { s0: 'H60,17 N60,28 P60,54 E52,41 W50,54 e68,41 w70,54 K55,73 F54,92 k65,73 f66,92', a: '38,4,46,8', n: 'Tricipite', z: 'spalle', side: 1, d: 0, hl: 'ua1', p: 'H60,17 N60,28 P60,54 E48,9 W58,23 e72,13 w50,7 K55,73 F54,92 k65,73 f66,92', how: 'Gomito in alto, mano dietro la nuca. L’altra mano spinge piano il gomito.' },
+    'petto-muro': { s0: 'H63,17 N61,28 P60,54 E50,28 W46,15 e63,41 w65,53 K66,72 F72,92 k56,73 f53,92', a: '72,30,85,30', n: 'Petto al muro', z: 'spalle', side: 1, d: 1, wall: 44, hl: 'arm1 N', p: 'H67,17 N63,28 P60,54 E50,28 W46,15 e66,41 w68,53 K68,72 F72,92 k56,73 f53,92', how: 'Avambraccio sullo stipite all’altezza della spalla, ruota il petto in avanti.' },
+    'braccia-dietro': { s0: 'H62,17 N61,28 P59,54 E58,41 W56,54 e60,41 w58,54 K61,73 F60,92 k58,73 f57,92', a: '40,60,35,46', n: 'Braccia dietro', z: 'spalle', d: 1, hl: 'arm1 arm2 N', p: 'H64,17 N62,28 P59,54 E52,40 W44,50 e54,41 w46,51 K61,73 F60,92 k58,73 f57,92', how: 'Dita intrecciate dietro la schiena, braccia tese: apri il petto e solleva.' },
+    avambracci: { s0: 'H60,17 N60,28 P60,54 E73,29 W87,29 e66,41 w68,53 K61,73 F60,92 k59,73 f58,92', a: '95,35,100,26,92,19', n: 'Avambracci e polsi', z: 'spalle', side: 1, d: 1, hl: 'fa1', p: 'H60,17 N60,28 P60,54 E73,29 W87,29 e70,40 w87,20 K61,73 F60,92 k59,73 f58,92', how: 'Braccio teso, palmo avanti: con l’altra mano porta le dita verso di te.' },
+    gatto: { s0: 'H88,58 N76,63 B60,78 P44,68 E77,77 W77,90 e74,77 w74,90 K44,90 F24,90 k47,90 f27,90', a: '60,44,60,30', n: 'Gatto-mucca', z: 'schiena', d: 1, hl: 'back', p: 'H86,72 N76,63 B60,48 P44,68 E77,77 W77,90 e74,77 w74,90 K44,90 F24,90 k47,90 f27,90', how: 'A quattro zampe: inarca la schiena in alto, poi scendi a pancia giù. Lento, col respiro.' },
+    bambino: { s0: 'H40,47 N40,58 P38,80 E44,70 W50,80 e42,70 w48,80 K58,88 F30,90 k60,88 f32,90', a: '86,68,102,72', n: 'Posizione del bambino', z: 'schiena', d: 1, hl: 'back', p: 'H80,85 N72,79 B50,60 P34,74 E88,75 W104,87 e88,73 w104,85 K58,88 F30,90 k60,88 f32,90', how: 'Seduto sui talloni, petto sulle cosce, braccia lunghe in avanti. Respira nella schiena.' },
+    cobra: { s0: 'H86,82 N78,86 P54,88 E70,80 W76,90 e68,80 w74,90 K36,90 F18,90 k37,89 f19,89', a: '90,80,90,62', n: 'Cobra', z: 'schiena', d: 1, hl: 'back', p: 'H84,56 N78,66 B70,84 P54,88 E78,78 W76,90 e75,78 w73,90 K36,90 F18,90 k37,89 f19,89', how: 'Pancia a terra, mani sotto le spalle: solleva il petto, bacino a terra, spalle basse.' },
+    torsione: { s0: 'H60,12 N60,23 P60,50 E44,24 W30,25 e76,24 w90,25 K56,70 F54,89 k64,70 f66,89', a: '48,50,40,47,34,56', n: 'Torsione da sdraiato', z: 'schiena', side: 1, top: 1, hl: 'back th2', p: 'H60,12 N60,23 P60,50 E44,24 W30,25 e76,24 w90,25 K56,70 F54,89 k40,60 f52,74', how: 'Sdraiato, braccia aperte: porta il ginocchio dall’altra parte, spalle a terra.' },
+    'ginocchia-petto': { s0: 'H18,85 N28,87 P54,87 E36,88 W46,88 e38,88 w48,88 K66,72 F78,88 k68,73 f80,89', a: '60,58,52,52,40,57', n: 'Ginocchia al petto', z: 'schiena', d: 1, hl: 'back P', p: 'H18,85 N28,87 P54,87 E40,74 W48,64 e42,76 w50,66 K44,64 F62,70 k46,66 f64,72', how: 'Sdraiato, abbraccia le ginocchia al petto. Puoi dondolare piano.' },
+    laterale: { s0: 'H60,17 N60,28 P60,54 E60,14 W60,2 e70,42 w66,52 K54,73 F52,92 k66,73 f68,92', a: '56,4,72,-4,88,8', n: 'Allungamento laterale', z: 'schiena', side: 1, d: 0, hl: 'back ua1', p: 'H71,19 N65,29 B57,41 P60,54 E60,12 W76,4 e74,42 w66,52 K54,73 F52,92 k66,73 f68,92', how: 'In piedi, braccio sopra la testa: piegati di lato senza ruotare il busto.' },
+    cane: { s0: 'H22,72 N32,63 P64,68 E31,77 W31,90 e34,77 w34,90 K64,90 F84,90 k61,90 f81,90', a: '68,32,76,24', n: 'Cane a testa in giù', z: 'schiena', d: -1, hl: 'leg1 back', p: 'H47,79 N44,68 P66,40 E36,79 W28,90 e38,80 w30,90 K78,65 F90,90 k79,66 f91,90', how: 'Mani e piedi a terra, bacino in alto. Talloni verso il pavimento, schiena lunga.' },
+    'affondo-flessori': { s0: 'H55,29 N54,40 P52,66 E66,54 W78,66 e64,55 w76,67 K80,70 F82,90 k42,88 f24,90', a: '46,58,60,58', n: 'Affondo basso', z: 'anche', side: 1, d: 1, hl: 'th2 P', p: 'H63,29 N62,40 P60,66 E70,52 W78,66 e68,53 w76,67 K80,70 F82,90 k42,88 f24,90', how: 'Un ginocchio a terra, l’altro piede avanti. Spingi il bacino in avanti, busto dritto.' },
+    figura4: { s0: 'H18,85 N28,87 P54,87 E40,80 W52,86 e42,82 w54,88 K70,74 F62,72 k66,70 f80,88', a: '86,60,80,50,68,50', n: 'Figura 4', z: 'anche', side: 1, d: 1, hl: 'th1 P', p: 'H18,85 N28,87 P54,87 E42,76 W58,68 e44,78 w60,70 K76,78 F61,66 k60,64 f80,62', how: 'Sdraiato, caviglia sul ginocchio opposto: tira la gamba sotto verso il petto.' },
+    farfalla: { s0: 'H60,46 N60,57 P60,84 E52,72 W57,87 e68,72 w63,87 K48,66 F57,89 k72,66 f63,89', a: '34,68,34,80;86,68,86,80', n: 'Farfalla', z: 'anche', d: 0, hl: 'th1 th2', p: 'H60,46 N60,57 P60,84 E50,72 W57,87 e70,72 w63,87 K38,80 F57,89 k82,80 f63,89', how: 'Seduto, piante dei piedi unite: lascia scendere le ginocchia, schiena dritta.' },
+    piccione: { s0: 'H59,35 N58,46 P54,70 E66,64 W70,89 e64,64 w68,89 K76,86 F56,89 k34,86 f14,90', a: '46,64,46,77', n: 'Piccione', z: 'anche', side: 1, d: 1, hl: 'P th1', p: 'H59,41 N58,52 P54,78 E66,70 W70,89 e64,70 w68,89 K76,86 F56,89 k34,88 f14,90', how: 'Gamba davanti piegata, l’altra tesa dietro. Bacino dritto, scendi col busto se vuoi.' },
+    squat: { s0: 'H62,16 N62,27 P60,53 E66,40 W70,50 e64,41 w68,51 K62,72 F62,92 k60,72 f60,92', a: '84,62,93,62', n: 'Squat profondo', z: 'anche', d: 1, hl: 'P th1', p: 'H70,45 N66,56 P52,80 E76,64 W70,56 e74,65 w68,57 K76,70 F64,91 k74,71 f62,91', how: 'Piedi larghi, scendi in fondo con i talloni a terra. I gomiti aprono le ginocchia.' },
+    'femorali-seduto': { s0: 'H32,49 N32,60 P30,86 E40,74 W50,82 e40,76 w50,84 K56,89 F84,89 k57,89 f85,89', a: '74,60,88,69', n: 'Femorali da seduto', z: 'gambe', d: 1, hl: 'leg1', p: 'H68,71 N60,68 B42,70 P30,86 E72,78 W84,84 e72,82 w84,86 K56,89 F84,89 k57,89 f85,89', how: 'Seduto, gambe tese: allunga le mani verso i piedi partendo dalle anche.' },
+    'femorali-supino': { s0: 'H18,85 N28,87 P54,87 E40,88 W50,88 e42,88 w52,88 K74,88 F94,88 k74,89 f94,89', a: '82,48,78,36,66,36', n: 'Femorale gamba su', z: 'gambe', side: 1, d: 1, hl: 'leg1', p: 'H18,85 N28,87 P54,87 E46,72 W60,64 e48,74 w62,66 K62,68 F70,47 k74,89 f94,89', how: 'Sdraiato, una gamba tesa in alto: tienila dietro la coscia, l’altra resta a terra.' },
+    quadricipite: { s0: 'H60,16 N60,27 P60,53 E58,40 W57,53 e62,40 w63,53 K61,72 F60,92 k59,72 f58,92', a: '36,66,38,52,50,46', n: 'Quadricipite in piedi', z: 'gambe', side: 1, d: 1, hl: 'th1', p: 'H60,16 N60,27 P60,53 E53,43 W46,58 e70,36 w81,33 K58,73 F45,57 k61,72 f60,92', how: 'In piedi, prendi la caviglia e porta il tallone al gluteo. Ginocchia vicine.' },
+    polpaccio: { s0: 'H80,18 N78,29 P74,55 E86,34 W95,32 e85,36 w95,34 K76,74 F78,91 k70,74 f68,91', a: '24,78,27,90', n: 'Polpaccio al muro', z: 'gambe', side: 1, d: 1, wall: 96, hl: 'sh2', p: 'H78,25 N70,34 P54,56 E84,36 W95,32 e83,38 w95,34 K72,72 F78,91 k43,74 f32,91', how: 'Mani al muro, una gamba dietro tesa e tallone a terra. Spingi il bacino avanti.' },
+    'affondo-laterale': { s0: 'H58,17 N58,28 P58,54 E52,41 W50,54 e64,41 w66,54 K48,73 F40,92 k68,73 f76,92', a: '44,54,44,66', n: 'Affondo laterale', z: 'gambe', side: 1, d: 0, hl: 'leg2', p: 'H58,27 N58,38 P56,64 E46,54 W36,68 e66,52 w62,64 K34,72 F32,92 k76,78 f92,92', how: 'Gambe larghe, piega un ginocchio e siediti di lato: l’altra gamba resta tesa.' },
+    piegamento: { s0: 'H58,16 N57,27 P56,50 E58,40 W59,52 e56,40 w55,52 K57,71 F57,92 k55,71 f55,92', a: '88,64,88,80', n: 'Piegamento in avanti', z: 'gambe', d: 1, hl: 'leg1', p: 'H71,84 N73,75 B78,54 P56,50 E80,83 W81,91 e78,83 w79,91 K57,71 F57,92 k55,71 f55,92', how: 'In piedi, piegati in avanti e lascia pendere testa e braccia. Ginocchia morbide.' },
   };
   const ROUTINES = {
     mattina: { name: 'Mattina', g: 'm', desc: 'Sveglia il corpo', ids: ['gatto', 'cane', 'laterale', 'affondo-flessori', 'piegamento', 'spalla-incrociata', 'collo-lato', 'quadricipite', 'cobra', 'torsione'] },
@@ -196,39 +196,41 @@
   const stretchName = (c) => (c.r && ROUTINES[c.r] ? ROUTINES[c.r].name : 'Stretching') + (c.dur ? ' ' + fmtShort(c.dur) : '');
 
   // Disegno a linea dell'esercizio (stesso stile per tutti)
-  function figSVG(id, cls) {
-    const ex = EX[id];
-    if (!ex) return '';
-    const q = {};
-    ex.p.split(' ').forEach((t) => { const [x, y] = t.slice(1).split(',').map(Number); q[t[0]] = [x, y]; });
+  // stile «corpo pieno»: arti spessi, testa piena; in grigio scuro la posizione di partenza (s0)
+  const LIMB = { neck: 5, back: 11, ua: 6.5, fa: 5.5, th: 9.5, sh: 7.5 };
+  const parsePose = (p) => { const q = {}; p.split(' ').forEach((t) => { const [x, y] = t.slice(1).split(',').map(Number); q[t[0]] = [x, y]; }); return q; };
+  function bodySVG(q, ex, ghost) {
     const hl = new Set();
-    ex.hl.split(' ').forEach((h) => {
+    if (!ghost) ex.hl.split(' ').forEach((h) => {
       if (h.startsWith('arm')) { hl.add('ua' + h[3]); hl.add('fa' + h[3]); }
       else if (h.startsWith('leg')) { hl.add('th' + h[3]); hl.add('sh' + h[3]); }
       else hl.add(h);
     });
     const L = (a, b) => `M${q[a][0]} ${q[a][1]}L${q[b][0]} ${q[b][1]}`;
+    const [hx, hy] = q.H, [nx, ny] = q.N, dl = Math.hypot(nx - hx, ny - hy) || 1, R = 7.6;
     const segs = [
       ['ua2', L('N', 'e'), 2], ['fa2', L('e', 'w'), 2], ['th2', L('P', 'k'), 2], ['sh2', L('k', 'f'), 2],
+      ['neck', `M${nx} ${ny}L${(hx + (nx - hx) * R / dl).toFixed(1)} ${(hy + (ny - hy) * R / dl).toFixed(1)}`, 1],
       ['back', q.B ? `M${q.N[0]} ${q.N[1]}Q${q.B[0]} ${q.B[1]} ${q.P[0]} ${q.P[1]}` : L('N', 'P'), 1],
       ['th1', L('P', 'K'), 1], ['sh1', L('K', 'F'), 1], ['ua1', L('N', 'E'), 1], ['fa1', L('E', 'W'), 1],
     ];
-    // collo: dalle spalle al bordo della testa
-    const [hx, hy] = q.H, [nx, ny] = q.N, dl = Math.hypot(nx - hx, ny - hy) || 1, R = 6.5;
-    segs.splice(4, 0, ['neck', `M${nx} ${ny}L${(hx + (nx - hx) * R / dl).toFixed(1)} ${(hy + (ny - hy) * R / dl).toFixed(1)}`, 1]);
-    // punte dei piedi appoggiati
-    const toes = [];
-    if (ex.d) [['K', 'F', 1], ['k', 'f', 2]].forEach(([k, f, s]) => {
-      if (q[f][1] >= 88 && Math.abs(q[k][1] - q[f][1]) > 10) toes.push([`M${q[f][0]} ${q[f][1]}l${6 * ex.d} 0`, s]);
+    const cls = (k, s) => ghost ? 'g' : hl.has(k) ? 'h' : 's' + s;
+    const path = (k, d, s) => `<path class="${cls(k, s)}" stroke-width="${LIMB[k.replace(/[12]$/, '')]}" d="${d}"/>`;
+    let far = '', near = '';
+    segs.forEach(([k, d, s]) => { if (s === 2) far += path(k, d, s); else near += path(k, d, s); });
+    if (ex.d) [['K', 'F', 1], ['k', 'f', 2]].forEach(([k, f, s]) => {   // punte dei piedi appoggiati
+      if (q[f][1] >= 88 && Math.abs(q[k][1] - q[f][1]) > 10) {
+        const el = `<path class="${cls('sh' + s, s)}" stroke-width="5" d="M${q[f][0]} ${q[f][1]}l${7 * ex.d} 0"/>`;
+        if (s === 2) far += el; else near += el;
+      }
     });
-    // ordine: lato lontano, testa, busto, lato vicino (così le mani sulla testa si vedono)
-    let glow = '', far = '', near = '';
-    segs.forEach(([k, d, s]) => {
-      if (hl.has(k)) glow += `<path d="${d}"/>`;
-      const el = `<path class="${hl.has(k) ? 'h' : 's' + s}${k === 'back' ? ' bk' : ''}" d="${d}"/>`;
-      if (s === 2) far += el; else near += el;
-    });
-    toes.forEach(([d, s]) => { if (s === 2) far = `<path class="s2" d="${d}"/>` + far; else near += `<path class="s1" d="${d}"/>`; });
+    const head = `<circle class="${ghost ? 'gf' : 'hf'}" cx="${hx}" cy="${hy}" r="${R}"/>`;
+    const dots = ['N', 'P'].filter((k) => hl.has(k)).map((k) => `<circle class="hd" cx="${q[k][0]}" cy="${q[k][1]}" r="6.5"/>`).join('');
+    return `<g${ghost ? ' class="gh"' : ''}>${far}${head}${near}${dots}</g>`;
+  }
+  function figSVG(id, cls) {
+    const ex = EX[id];
+    if (!ex) return '';
     // frecce lilla: verso del movimento (2 punti = dritta, 3 = curva)
     let arrows = '';
     if (ex.a) ex.a.split(';').forEach((t) => {
@@ -239,11 +241,10 @@
       const d = v.length === 6 ? `M${v[0]} ${v[1]}Q${v[2]} ${v[3]} ${x2} ${y2}` : `M${v[0]} ${v[1]}L${x2} ${y2}`;
       arrows += `<path class="ar" d="${d}"/><path class="ah" d="M${x2} ${y2}L${p1[0].toFixed(1)} ${p1[1].toFixed(1)}L${p2[0].toFixed(1)} ${p2[1].toFixed(1)}Z"/>`;
     });
-    const hands = ['W'].map((k) => `<circle class="hn" cx="${q[k][0]}" cy="${q[k][1]}" r="2.3"/>`).join('');
-    const dots = ['N', 'P'].filter((k) => hl.has(k)).map((k) => `<circle class="hd" cx="${q[k][0]}" cy="${q[k][1]}" r="4.5"/>`).join('');
     const ground = ex.top ? '' : '<path class="gr" d="M6 92.5H114"/>';
     const wall = ex.wall ? `<path class="gr" d="M${ex.wall} 6V92.5"/>` : '';
-    return `<svg class="fig${cls ? ' ' + cls : ''}" viewBox="0 0 120 100" aria-hidden="true">${ground}${wall}<g class="glow">${glow}</g>${far}<circle class="hd0" cx="${hx}" cy="${hy}" r="${R}"/>${near}${hands}${dots}<g class="arw">${arrows}</g></svg>`;
+    const ghost = ex.s0 ? bodySVG(parsePose(ex.s0), ex, true) : '';
+    return `<svg class="fig${cls ? ' ' + cls : ''}" viewBox="0 0 120 100" aria-hidden="true">${ground}${wall}${ghost}${bodySVG(parsePose(ex.p), ex, false)}<g class="arw">${arrows}</g></svg>`;
   }
 
   function blockTotal(b) { return b.t === 'rest' ? b.secs : TYPES[b.t].total(b); }

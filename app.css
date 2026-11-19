@@ -365,21 +365,12 @@ body.flash::after { content: ""; position: fixed; inset: 0; z-index: 2; backgrou
 .streak { display: inline-block; margin-left: 8px; padding: 2px 10px; border-radius: 99px; font-size: 13px; color: var(--lilac); background: color-mix(in srgb, var(--lilac) 14%, transparent); }
 .fig { display: block; overflow: visible; }
 .fig path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.fig .s1 { stroke: #E5E5EA; stroke-width: 3.4; }
-.fig .s2 { stroke: #5C5C68; stroke-width: 3.4; }
-.fig .h { stroke: var(--lilac); stroke-width: 4.2; }
-.fig .glow path { stroke: var(--lilac); stroke-width: 11; opacity: .25; }
-.fig .hd { fill: var(--lilac); filter: drop-shadow(0 0 4px var(--lilac)); }
-.fig .hd0 { fill: none; stroke: #E5E5EA; stroke-width: 3.2; }
 .fig .gr { stroke: #34343E; stroke-width: 2; }
 .fig.thumb { width: 54px; height: 45px; flex: none; }
-.fig.thumb .s1, .fig.thumb .s2, .fig.thumb .h, .fig.thumb .hd0 { stroke-width: 4.6; }
-.fig.thumb .glow { display: none; }
 .fig.big { width: 100%; height: 100%; }
 
 .tile.stile { min-height: 132px; }
 .tile.stile .fig.thumb { width: 64px; height: 53px; margin: -4px 0 auto -6px; }
-.tile.stile .fig .hd0 { fill: var(--surface); }
 .chip.add { border-left: 0; border: 1px dashed color-mix(in srgb, var(--c) 60%, transparent); background: transparent; }
 .chip.add b { color: var(--c); }
 
@@ -393,7 +384,6 @@ body.flash::after { content: ""; position: fixed; inset: 0; z-index: 2; backgrou
 .sex span, .lrow span { display: flex; flex-direction: column; min-width: 0; }
 .sex b, .lrow b { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sex small, .lrow small { color: var(--muted); font-size: 13px; }
-.sex .fig .hd0, .lrow .fig .hd0 { fill: var(--surface); }
 .total .muted { color: var(--muted); font-size: 15px; }
 .btn.primary.go:disabled { opacity: .35; box-shadow: none; }
 
@@ -407,7 +397,6 @@ body.flash::after { content: ""; position: fixed; inset: 0; z-index: 2; backgrou
 .lrow em { font-style: normal; font-size: 24px; color: var(--lilac); font-weight: 600; }
 
 .exbox .fig.big { height: 200px; margin: 0 auto 6px; }
-.exbox .fig .hd0 { fill: var(--surface); }
 .exbox h3 { margin-bottom: 4px; font-size: 22px; }
 .exz { margin: 0 0 10px !important; color: var(--lilac) !important; font-size: 14px !important; }
 .exhow { margin: 0 0 6px !important; color: var(--text) !important; font-size: 16px !important; line-height: 1.45; }
@@ -433,7 +422,6 @@ body.srun .time { font-size: min(19vw, 10vh, 84px); margin-top: 2px; }
   body.srun .exhow.small { display: none; }
 }
 .tabbar button[data-s="stretch"].on svg { stroke: var(--lilac); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--lilac) 55%, transparent)); }
-.fig .bk { stroke-width: 5.2; }
 .tile.stile { min-height: 118px; }
 .tile.stile b { font-size: 18px; line-height: 1.2; }
 .figbox svg { transition: transform .35s ease; }
@@ -442,8 +430,6 @@ body.srun .time { font-size: min(19vw, 10vh, 84px); margin-top: 2px; }
 body.has-tabs .app > * { flex-shrink: 0; }
 .fig .ar { stroke: var(--lilac-2); stroke-width: 2.6; }
 .fig .ah { fill: var(--lilac-2); }
-.fig .hn { fill: #E5E5EA; }
-.fig.thumb .arw, .fig.thumb .hn { display: none; }
 /* I miei: etichetta colorata + una sola scritta */
 .chip.v2 { gap: 4px; min-width: 120px; padding: 12px 16px 13px; border-left: 0; border-radius: 18px;
   background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--c) 16%, transparent), transparent 65%), var(--surface);
@@ -455,3 +441,15 @@ body.has-tabs .app > * { flex-shrink: 0; }
 /* Menu: più vicino al bordo (l'iPhone aggiunge già la sua zona sotto) e fondo che arriva fino in basso */
 .tabbar { padding: 6px 12px max(calc(env(safe-area-inset-bottom) - 14px), 6px); }
 .tabbar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 80px; background: inherit; }
+
+/* Figure stile «corpo pieno» (0.8.0) */
+.fig .s1 { stroke: #D9D9DF; }
+.fig .s2 { stroke: #5A5A66; }
+.fig .h { stroke: var(--lilac); }
+.fig .g { stroke: #3E3E4A; }
+.fig .hf { fill: #D9D9DF; }
+.fig .gf { fill: #3E3E4A; }
+.fig .hd { fill: var(--lilac); }
+.fig.thumb .gh, .fig.thumb .arw { display: none; }
+/* Menu ancora più vicino al bordo */
+.tabbar { padding: 4px 12px max(calc(env(safe-area-inset-bottom) - 22px), 4px); }
