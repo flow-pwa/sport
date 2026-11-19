@@ -438,3 +438,9 @@ body.srun .time { font-size: min(19vw, 10vh, 84px); margin-top: 2px; }
 .tile.stile b { font-size: 18px; line-height: 1.2; }
 .figbox svg { transition: transform .35s ease; }
 .figbox.flip svg { transform: scaleX(-1); }
+/* la pagina con il menu non schiaccia i blocchi in fondo */
+body.has-tabs .app > * { flex-shrink: 0; }
+.fig .ar { stroke: var(--lilac-2); stroke-width: 2.6; }
+.fig .ah { fill: var(--lilac-2); }
+.fig .hn { fill: #E5E5EA; }
+.fig.thumb .arw, .fig.thumb .hn { display: none; }
