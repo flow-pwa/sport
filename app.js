@@ -1,7 +1,7 @@
 /* Sport — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.8.0';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.8.1';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 6;                    // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -745,8 +745,8 @@
       const out = c.dur && i >= inFit;
       return `<div class="srow2${out ? ' out' : ''}">
           <button class="sex" data-act="exinfo" data-id="${id}">${figSVG(id, 'thumb')}<span><b>${e.n}</b><small>${e.side ? '⇄ due lati · ' + fmtShort(c.hold) + ' + ' + fmtShort(c.hold) : fmtShort(c.hold)}${out ? ' · non entra' : ''}</small></span></button>
-          <button class="mini" data-act="sup" data-i="${i}" aria-label="Su"${i === 0 ? ' disabled' : ''}>↑</button>
           <button class="mini" data-act="sdel" data-i="${i}" aria-label="Togli">✕</button>
+          <span class="drag" aria-label="Trascina per spostare"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14M5 12h14M5 16h14"/></svg></span>
         </div>`;
     }).join('');
     const again = fit.list.length > c.ids.length ? ' · ripete da capo' : '';
@@ -1273,6 +1273,49 @@
         persist(); render();
       });
     }
+  });
+
+  // Stretching: trascina un esercizio dalle tre barrette per spostarlo
+  root.addEventListener('pointerdown', (e) => {
+    const h = e.target.closest('.drag');
+    if (!h || !cur || cur.type !== 'stretch') return;
+    e.preventDefault();
+    const row = h.closest('.srow2'), rows = [...$('slist').querySelectorAll('.srow2')];
+    const from = rows.indexOf(row);
+    const tops = rows.map((r) => { const b = r.getBoundingClientRect(); return { mid: b.top + window.scrollY + b.height / 2 }; });
+    const step = rows.length > 1 ? Math.abs(tops[1].mid - tops[0].mid) : 0;
+    const y0 = e.pageY;
+    let to = from, lastY = e.clientY, raf = 0;
+    row.classList.add('dragging'); body.classList.add('dragmode');
+    try { h.setPointerCapture(e.pointerId); } catch (er) { /* niente */ }
+    const place = (pageY) => {
+      const dy = pageY - y0, cy = tops[from].mid + dy;
+      row.style.transform = `translateY(${dy}px)`;
+      to = from;
+      rows.forEach((r, i) => {
+        if (i === from) return;
+        let sh = 0;
+        if (i > from && cy > tops[i].mid) { sh = -step; to = Math.max(to, i); }
+        if (i < from && cy < tops[i].mid) { sh = step; to = Math.min(to, i); }
+        r.style.transform = sh ? `translateY(${sh}px)` : '';
+      });
+    };
+    // vicino ai bordi la pagina scorre da sola
+    const edge = () => {
+      const d = lastY < 90 ? -9 : lastY > window.innerHeight - 90 ? 9 : 0;
+      if (d) { window.scrollBy(0, d); place(lastY + window.scrollY); }
+      raf = requestAnimationFrame(edge);
+    };
+    raf = requestAnimationFrame(edge);
+    const move = (ev) => { lastY = ev.clientY; place(ev.pageY); };
+    const up = () => {
+      cancelAnimationFrame(raf);
+      h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up);
+      body.classList.remove('dragmode');
+      if (to !== from) { const [x] = cur.cfg.ids.splice(from, 1); cur.cfg.ids.splice(to, 0, x); }
+      refreshTotals();
+    };
+    h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
   });
 
   // Tasti − / + : tocco singolo, oppure tieni premuto per scorrere veloce

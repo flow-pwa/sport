@@ -453,3 +453,12 @@ body.has-tabs .app > * { flex-shrink: 0; }
 .fig.thumb .gh, .fig.thumb .arw { display: none; }
 /* Menu ancora più vicino al bordo */
 .tabbar { padding: 4px 12px max(calc(env(safe-area-inset-bottom) - 22px), 4px); }
+/* Trascina gli esercizi */
+.drag { flex: none; width: 40px; height: 44px; display: grid; place-items: center; color: var(--muted); touch-action: none; cursor: grab; }
+.drag svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.slist .srow2 { transition: transform .16s ease; }
+.slist .srow2.dragging { transition: none; position: relative; z-index: 3; background: var(--surface-2); box-shadow: 0 12px 30px rgba(0,0,0,.5), inset 0 0 0 1.5px var(--lilac); }
+.slist .srow2.dragging .drag { color: var(--lilac); }
+body.dragmode { -webkit-user-select: none; user-select: none; }
+/* Menu: ancora più giù */
+.tabbar { padding-bottom: max(calc(env(safe-area-inset-bottom) - 28px), 2px); }
