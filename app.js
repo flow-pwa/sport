@@ -1,7 +1,7 @@
 /* Sport — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.5.1';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.5.2';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 10;                   // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -353,7 +353,7 @@
       data.rec.n++; data.rec.at = Date.now(); data.rec.secs = cfg.secs;
       beep('tic');
     } else {
-      data.last = { type, cfg: clone(cfg), name: run.name, savedId: run.savedId };
+      data.last = { type, cfg: clone(cfg), name: run.name, savedId: run.savedId, custom: !!name };
       data.lastBy[TYPES[type].sec] = data.last;
     }
     persist();
@@ -417,6 +417,7 @@
     else if (view === 'recupero') root.innerHTML = recHTML();
     else if (view === 'run') { body.className = 'running'; root.innerHTML = runHTML(); bindRun(); }
     else if (view === 'done') { body.className = run.result.completed ? 'done' : 'stopped'; root.innerHTML = doneHTML(); }
+    $('tabbar').hidden = view !== 'home';
     window.scrollTo(0, 0);
   }
 
@@ -428,7 +429,7 @@
   const SECTIONS = [{ k: 'train', name: 'Allenamento' }, { k: 'martial', name: 'Arti marziali' }];
   function lastName(l) {
     const s = l.savedId && data.saved.find((x) => x.id === l.savedId);
-    return s ? s.name : label(l.type, Object.assign(clone(TYPES[l.type].def), l.cfg));
+    return s ? s.name : l.custom ? l.name : label(l.type, Object.assign(clone(TYPES[l.type].def), l.cfg));
   }
 
   function homeHTML() {
@@ -445,7 +446,7 @@
           <button class="chip" data-act="openSaved" data-id="${esc(s.id)}" style="--c:${TYPES[s.type].color}">
             <b>${esc(s.name)}</b><small>${esc((s.type === 'boxe' ? '' : TYPES[s.type].name + ' · ') + (s.type === 'mix' ? fmtShort(TYPES.mix.total(s.cfg)) : TYPES[s.type].summary(s.cfg)))}</small>
           </button>`).join('')}</div>`
-      : `<p class="hint">Qui trovi i timer che salvi: aprine uno da «Nuovo», regolalo e tocca «☆ Salva nei miei»${sec === 'martial' ? ' (es. «Sacco», «Sparring»)' : ''}.</p>`;
+      : '<p class="hint">Qui trovi i timer che salvi.</p>';
     const tile = (k, t) => `
       <button class="tile${t.wide || sec === 'martial' ? ' wide' : ''}" data-act="new" data-type="${k}" style="--c:${t.color}">
         <i></i><span><b>${t.title || t.name}</b><small>${t.desc}</small></span>${t.wide || sec === 'martial' ? '<em>›</em>' : ''}
@@ -458,14 +459,13 @@
       <button class="tile wide" data-act="recupero" style="--c:${rec.color}">
         <i></i><span><b>${rec.name}</b><small>${rec.desc}</small></span><em>›</em>
       </button>` : '';
-    const tabs = SECTIONS.map((s) => `<button class="${s.k === sec ? 'on' : ''}" data-act="sec" data-s="${s.k}" role="tab" aria-selected="${s.k === sec}">${ICONS[s.k]}<span>${s.name}</span></button>`).join('');
+    $('tabbar').innerHTML = SECTIONS.map((s) => `<button class="${s.k === sec ? 'on' : ''}" data-act="sec" data-s="${s.k}" role="tab" aria-selected="${s.k === sec}">${ICONS[s.k]}<span>${s.name}</span></button>`).join('');
     return `
       <header class="top"><h1>Sport</h1><button class="ver" id="ver">v${VERSION}</button></header>
       <p class="secname">${SECTIONS.find((s) => s.k === sec).name}</p>
       ${repeat}
       <h2>I miei</h2>${mine}
-      <h2>Nuovo</h2><div class="tiles">${grid}${wides}${extra}</div>
-      <nav class="tabbar" role="tablist">${tabs}</nav>`;
+      <h2>Nuovo</h2><div class="tiles">${grid}${wides}${extra}</div>`;
   }
 
   function fieldDisp(f, v) { return f.kind === 'int' ? String(v) : f.zero && !v ? f.zero : fmt(v); }
@@ -486,7 +486,8 @@
         <h1>${t.title || t.name}</h1>
         <span class="icon"></span>
       </header>
-      ${saved ? `<p class="sub">${esc(saved.name)}</p>` : `<p class="sub muted">${t.desc}</p>`}`;
+      <p class="sub muted">${t.desc}</p>
+      <input class="cname" id="cname" maxlength="40" placeholder="Nome sessione (facoltativo)" autocomplete="off" enterkeyhint="done" value="${esc(cur.name || '')}">`;
   }
 
   function saveRow(t, saved) {
@@ -663,19 +664,20 @@
     if (!b || b.disabled) return;
     const a = b.dataset.act;
     if (a === 'home') { view = 'home'; render(); }
-    else if (a === 'new') { cur = { type: b.dataset.type, cfg: clone(TYPES[b.dataset.type].def), savedId: null }; view = 'config'; render(); }
+    else if (a === 'new') { cur = { type: b.dataset.type, cfg: clone(TYPES[b.dataset.type].def), savedId: null, name: '' }; view = 'config'; render(); }
     else if (a === 'openSaved') {
       const s = data.saved.find((x) => x.id === b.dataset.id);
-      if (s) { cur = { type: s.type, cfg: Object.assign(clone(TYPES[s.type].def), clone(s.cfg)), savedId: s.id }; view = 'config'; render(); }
+      if (s) { cur = { type: s.type, cfg: Object.assign(clone(TYPES[s.type].def), clone(s.cfg)), savedId: s.id, name: s.name }; view = 'config'; render(); }
     }
     else if (a === 'repeat') {
       const l = data.lastBy[data.section];
-      if (l && TYPES[l.type]) { const s = l.savedId && data.saved.find((x) => x.id === l.savedId); start(l.type, Object.assign(clone(TYPES[l.type].def), clone(l.cfg)), s ? s.name : null, s ? s.id : null); }
+      if (l && TYPES[l.type]) { const s = l.savedId && data.saved.find((x) => x.id === l.savedId); start(l.type, Object.assign(clone(TYPES[l.type].def), clone(l.cfg)), s ? s.name : l.custom ? l.name : null, s ? s.id : null); }
     }
     else if (a === 'sec') { data.section = b.dataset.s; persist(); render(); }
     else if (a === 'go') {
       const s = cur.savedId && data.saved.find((x) => x.id === cur.savedId);
-      start(cur.type, cur.cfg, s ? s.name : null, s ? s.id : null);
+      const nm = (cur.name || '').trim();
+      start(cur.type, cur.cfg, nm || (s ? s.name : null), s ? s.id : null);
     }
     else if (a === 'recupero') { cur = { type: 'recupero', cfg: { secs: data.rec.secs || 90 }, savedId: null }; view = 'recupero'; render(); }
     else if (a === 'rec') { cur.cfg.secs = +b.dataset.s; start('recupero', cur.cfg); }
@@ -689,13 +691,14 @@
     }
     else if (a === 'star') {
       const s = cur.savedId && data.saved.find((x) => x.id === cur.savedId);
-      openSheet(s ? s.name : label(cur.type, cur.cfg), !!s, (res, name) => {
+      openSheet((cur.name || '').trim() || (s ? s.name : label(cur.type, cur.cfg)), !!s, (res, name) => {
         if (res === 'del') {
           data.saved = data.saved.filter((x) => x.id !== s.id);
           [data.last, data.lastBy.train, data.lastBy.martial].forEach((l) => { if (l && l.savedId === s.id) l.savedId = null; });
           cur.savedId = null;
         } else if (s) { s.name = name; s.cfg = clone(cur.cfg); }
         else { const id = uid(); data.saved.push({ id, name, type: cur.type, cfg: clone(cur.cfg) }); cur.savedId = id; }
+        cur.name = res === 'del' ? cur.name : name;
         persist(); render();
       });
     }
@@ -737,7 +740,12 @@
     const v = f.kind === 'int' ? parseInt(txt, 10) : f.zero && (txt === '' || txt === f.zero || txt === '0') ? 0 : parseTime(txt);
     setField(ctx, f.k, v === null || isNaN(v) ? ctx.obj[f.k] : v);
   });
-  root.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.classList.contains('val')) e.target.blur(); });
+  root.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.target.classList.contains('val') || e.target.id === 'cname')) e.target.blur(); });
+  root.addEventListener('input', (e) => { if (e.target.id === 'cname' && cur) cur.name = e.target.value; });
+  $('tabbar').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act="sec"]');
+    if (b) { data.section = b.dataset.s; persist(); render(); }
+  });
 
   function bindRun() {
     $('stage').addEventListener('click', togglePause);
