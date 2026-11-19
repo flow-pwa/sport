@@ -1,7 +1,7 @@
 /* Sport — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.6.2';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.7.0';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 10;                   // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -20,14 +20,15 @@
     d.history = Array.isArray(d.history) ? d.history : [];
     d.last = d.last || null;
     d.rec = d.rec || { n: 0, at: 0, secs: 90 };
-    d.section = ['train', 'martial', 'diary'].includes(d.section) ? d.section : 'train';
+    d.section = ['train', 'martial', 'stretch', 'diary'].includes(d.section) ? d.section : 'train';
     d.backupAt = d.backupAt || 0;
     d.lastBy = d.lastBy || {};
+    d.sound = d.sound === 'silent' ? 'silent' : 'mix';   // mix = insieme alla musica · silent = anche col silenzioso
     return d;
   })();
   if (data.last && TYPES_SEC_OF(data.last.type) && !data.lastBy[TYPES_SEC_OF(data.last.type)]) data.lastBy[TYPES_SEC_OF(data.last.type)] = data.last;
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* memoria piena o bloccata */ } }
-  function TYPES_SEC_OF(type) { return type === 'boxe' ? 'martial' : type ? 'train' : null; }
+  function TYPES_SEC_OF(type) { return type === 'boxe' ? 'martial' : type === 'stretch' ? 'stretch' : type ? 'train' : null; }
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   /* ================= Formati ================= */
@@ -117,6 +118,13 @@
       summary: (c) => fmtShort(c.secs),
       total: (c) => c.secs,
     },
+    stretch: {
+      name: 'Stretching', desc: 'Routine guidata', color: '#BF5AF2', sec: 'stretch', hidden: true,
+      def: { r: null, ids: [], hold: 30, dur: 600 },
+      fields: [{ k: 'hold', label: 'Ogni posizione', kind: 'time', min: 15, max: 120, step: 5 }],
+      summary: (c) => fitStretch(c).list.length + ' esercizi · ' + fmtShort(fitStretch(c).secs),
+      total: (c) => fitStretch(c).secs,
+    },
   };
   // Blocchi usabili dentro un MIX
   const BLOCK = {
@@ -125,8 +133,110 @@
     amrap: { name: 'AMRAP', color: TYPES.amrap.color, fields: TYPES.amrap.fields, def: { dur: 300 } },
     rest: { name: 'Riposo', color: '#0A84FF', fields: [{ k: 'secs', label: 'Durata', kind: 'time', min: 5, max: 900 }], def: { secs: 60 } },
   };
+  /* ================= Stretching: esercizi, figure, routine ================= */
+  const LILAC = '#BF5AF2';
+  const GAP = 5, SWAP = 3;           // secondi per passare all'esercizio dopo / per cambiare lato
+  const ZONES = { spalle: 'Spalle e collo', schiena: 'Schiena', anche: 'Anche', gambe: 'Gambe' };
+  // Figura: punti in un riquadro 120×100, pavimento a y=92. Maiuscole = lato vicino, minuscole = lato lontano.
+  // H testa · N spalle · P bacino · B curva della schiena · E/W gomito/mano · K/F ginocchio/piede
+  // hl = parti in lilla: neck back ua fa arm th sh leg (+1/2) e punti N P · d = verso delle punte (1 destra, -1 sinistra)
+  const EX = {
+    'collo-lato': { n: 'Collo di lato', z: 'spalle', side: 1, d: 0, hl: 'neck', p: 'H66,17 N60,28 P60,54 E76,22 W67,10 e52,41 w50,54 K55,73 F54,92 k65,73 f66,92', how: 'Orecchio verso la spalla, la mano accompagna senza tirare. Spalle basse.' },
+    'mento-petto': { n: 'Mento al petto', z: 'spalle', d: 1, hl: 'neck', p: 'H69,31 N60,30 P60,55 E62,43 W64,55 e59,43 w58,55 K61,73 F60,92 k59,73 f58,92', how: 'Porta piano il mento al petto. Se vuoi, appoggia le mani dietro la testa senza tirare.' },
+    'spalla-incrociata': { n: 'Braccio incrociato', z: 'spalle', side: 1, d: 0, hl: 'arm1', p: 'H60,17 N60,28 P60,54 E50,31 W38,31 e70,40 w52,31 K55,73 F54,92 k65,73 f66,92', how: 'Braccio teso davanti al petto, l’altra mano lo avvicina sopra il gomito.' },
+    tricipite: { n: 'Tricipite', z: 'spalle', side: 1, d: 0, hl: 'ua1', p: 'H60,17 N60,28 P60,54 E48,9 W58,23 e72,13 w50,7 K55,73 F54,92 k65,73 f66,92', how: 'Gomito in alto, mano dietro la nuca. L’altra mano spinge piano il gomito.' },
+    'petto-muro': { n: 'Petto al muro', z: 'spalle', side: 1, d: 1, wall: 44, hl: 'arm1 N', p: 'H67,17 N63,28 P60,54 E50,28 W46,15 e66,41 w68,53 K68,72 F72,92 k56,73 f53,92', how: 'Avambraccio sullo stipite all’altezza della spalla, ruota il petto in avanti.' },
+    'braccia-dietro': { n: 'Braccia dietro', z: 'spalle', d: 1, hl: 'arm1 arm2 N', p: 'H64,17 N62,28 P59,54 E52,40 W44,50 e54,41 w46,51 K61,73 F60,92 k58,73 f57,92', how: 'Dita intrecciate dietro la schiena, braccia tese: apri il petto e solleva.' },
+    avambracci: { n: 'Avambracci e polsi', z: 'spalle', side: 1, d: 1, hl: 'fa1', p: 'H60,17 N60,28 P60,54 E73,29 W87,29 e70,40 w87,20 K61,73 F60,92 k59,73 f58,92', how: 'Braccio teso, palmo avanti: con l’altra mano porta le dita verso di te.' },
+    gatto: { n: 'Gatto-mucca', z: 'schiena', d: 1, hl: 'back', p: 'H86,72 N76,63 B60,48 P44,68 E77,77 W77,90 e74,77 w74,90 K44,90 F24,90 k47,90 f27,90', how: 'A quattro zampe: inarca la schiena in alto, poi scendi a pancia giù. Lento, col respiro.' },
+    bambino: { n: 'Posizione del bambino', z: 'schiena', d: 1, hl: 'back', p: 'H80,85 N72,79 B50,60 P34,74 E88,75 W104,87 e88,73 w104,85 K58,88 F30,90 k60,88 f32,90', how: 'Seduto sui talloni, petto sulle cosce, braccia lunghe in avanti. Respira nella schiena.' },
+    cobra: { n: 'Cobra', z: 'schiena', d: 1, hl: 'back', p: 'H84,56 N78,66 B70,84 P54,88 E78,78 W76,90 e75,78 w73,90 K36,90 F18,90 k37,89 f19,89', how: 'Pancia a terra, mani sotto le spalle: solleva il petto, bacino a terra, spalle basse.' },
+    torsione: { n: 'Torsione da sdraiato', z: 'schiena', side: 1, top: 1, hl: 'back th2', p: 'H60,12 N60,23 P60,50 E44,24 W30,25 e76,24 w90,25 K56,70 F54,89 k40,60 f52,74', how: 'Sdraiato, braccia aperte: porta il ginocchio dall’altra parte, spalle a terra.' },
+    'ginocchia-petto': { n: 'Ginocchia al petto', z: 'schiena', d: 1, hl: 'back P', p: 'H18,85 N28,87 P54,87 E40,74 W48,64 e42,76 w50,66 K44,64 F62,70 k46,66 f64,72', how: 'Sdraiato, abbraccia le ginocchia al petto. Puoi dondolare piano.' },
+    laterale: { n: 'Allungamento laterale', z: 'schiena', side: 1, d: 0, hl: 'back ua1', p: 'H71,19 N65,29 B57,41 P60,54 E60,12 W76,4 e74,42 w66,52 K54,73 F52,92 k66,73 f68,92', how: 'In piedi, braccio sopra la testa: piegati di lato senza ruotare il busto.' },
+    cane: { n: 'Cane a testa in giù', z: 'schiena', d: -1, hl: 'leg1 back', p: 'H47,79 N44,68 P66,40 E36,79 W28,90 e38,80 w30,90 K78,65 F90,90 k79,66 f91,90', how: 'Mani e piedi a terra, bacino in alto. Talloni verso il pavimento, schiena lunga.' },
+    'affondo-flessori': { n: 'Affondo basso', z: 'anche', side: 1, d: 1, hl: 'th2 P', p: 'H63,29 N62,40 P60,66 E70,52 W78,66 e68,53 w76,67 K80,70 F82,90 k42,88 f24,90', how: 'Un ginocchio a terra, l’altro piede avanti. Spingi il bacino in avanti, busto dritto.' },
+    figura4: { n: 'Figura 4', z: 'anche', side: 1, d: 1, hl: 'th1 P', p: 'H18,85 N28,87 P54,87 E42,76 W58,68 e44,78 w60,70 K76,78 F61,66 k60,64 f80,62', how: 'Sdraiato, caviglia sul ginocchio opposto: tira la gamba sotto verso il petto.' },
+    farfalla: { n: 'Farfalla', z: 'anche', d: 0, hl: 'th1 th2', p: 'H60,46 N60,57 P60,84 E50,72 W57,87 e70,72 w63,87 K38,80 F57,89 k82,80 f63,89', how: 'Seduto, piante dei piedi unite: lascia scendere le ginocchia, schiena dritta.' },
+    piccione: { n: 'Piccione', z: 'anche', side: 1, d: 1, hl: 'P th1', p: 'H59,41 N58,52 P54,78 E66,70 W70,89 e64,70 w68,89 K76,86 F56,89 k34,88 f14,90', how: 'Gamba davanti piegata, l’altra tesa dietro. Bacino dritto, scendi col busto se vuoi.' },
+    squat: { n: 'Squat profondo', z: 'anche', d: 1, hl: 'P th1', p: 'H70,45 N66,56 P52,80 E76,64 W70,56 e74,65 w68,57 K76,70 F64,91 k74,71 f62,91', how: 'Piedi larghi, scendi in fondo con i talloni a terra. I gomiti aprono le ginocchia.' },
+    'femorali-seduto': { n: 'Femorali da seduto', z: 'gambe', d: 1, hl: 'leg1', p: 'H68,71 N60,68 B42,70 P30,86 E72,78 W84,84 e72,82 w84,86 K56,89 F84,89 k57,89 f85,89', how: 'Seduto, gambe tese: allunga le mani verso i piedi partendo dalle anche.' },
+    'femorali-supino': { n: 'Femorale gamba su', z: 'gambe', side: 1, d: 1, hl: 'leg1', p: 'H18,85 N28,87 P54,87 E46,72 W60,64 e48,74 w62,66 K62,68 F70,47 k74,89 f94,89', how: 'Sdraiato, una gamba tesa in alto: tienila dietro la coscia, l’altra resta a terra.' },
+    quadricipite: { n: 'Quadricipite in piedi', z: 'gambe', side: 1, d: 1, hl: 'th1', p: 'H60,16 N60,27 P60,53 E53,43 W46,58 e70,36 w81,33 K58,73 F45,57 k61,72 f60,92', how: 'In piedi, prendi la caviglia e porta il tallone al gluteo. Ginocchia vicine.' },
+    polpaccio: { n: 'Polpaccio al muro', z: 'gambe', side: 1, d: 1, wall: 96, hl: 'sh2', p: 'H78,25 N70,34 P54,56 E84,36 W95,32 e83,38 w95,34 K72,72 F78,91 k43,74 f32,91', how: 'Mani al muro, una gamba dietro tesa e tallone a terra. Spingi il bacino avanti.' },
+    'affondo-laterale': { n: 'Affondo laterale', z: 'gambe', side: 1, d: 0, hl: 'leg2', p: 'H58,27 N58,38 P56,64 E46,54 W36,68 e66,52 w62,64 K34,72 F32,92 k76,78 f92,92', how: 'Gambe larghe, piega un ginocchio e siediti di lato: l’altra gamba resta tesa.' },
+    piegamento: { n: 'Piegamento in avanti', z: 'gambe', d: 1, hl: 'leg1', p: 'H71,84 N73,75 B78,54 P56,50 E80,83 W81,91 e78,83 w79,91 K57,71 F57,92 k55,71 f55,92', how: 'In piedi, piegati in avanti e lascia pendere testa e braccia. Ginocchia morbide.' },
+  };
+  const ROUTINES = {
+    mattina: { name: 'Mattina', g: 'm', desc: 'Sveglia il corpo', ids: ['gatto', 'cane', 'laterale', 'affondo-flessori', 'piegamento', 'spalla-incrociata', 'collo-lato', 'quadricipite', 'cobra', 'torsione'] },
+    sera: { name: 'Sera', g: 'm', desc: 'Lento, per dormire', ids: ['bambino', 'ginocchia-petto', 'torsione', 'figura4', 'femorali-supino', 'farfalla', 'collo-lato', 'cobra', 'piccione', 'mento-petto'] },
+    allenamento: { name: 'Dopo allenamento', g: 'm', desc: 'Gambe, anche, spalle', ids: ['quadricipite', 'femorali-supino', 'affondo-flessori', 'figura4', 'polpaccio', 'petto-muro', 'tricipite', 'bambino', 'farfalla', 'affondo-laterale', 'spalla-incrociata'] },
+    boxe: { name: 'Dopo boxe', g: 'm', desc: 'Spalle, polsi, collo', ids: ['spalla-incrociata', 'petto-muro', 'avambracci', 'tricipite', 'collo-lato', 'braccia-dietro', 'torsione', 'affondo-flessori', 'polpaccio', 'bambino', 'quadricipite'] },
+    schiena: { name: 'Schiena', g: 'z', desc: 'Dalla nuca al bacino', ids: ['gatto', 'bambino', 'cobra', 'torsione', 'ginocchia-petto', 'laterale', 'cane', 'piegamento'] },
+    anche: { name: 'Anche', g: 'z', desc: 'Flessori e glutei', ids: ['affondo-flessori', 'figura4', 'farfalla', 'piccione', 'squat', 'affondo-laterale', 'ginocchia-petto'] },
+    gambe: { name: 'Gambe', g: 'z', desc: 'Femorali e polpacci', ids: ['femorali-seduto', 'femorali-supino', 'quadricipite', 'polpaccio', 'affondo-laterale', 'piegamento', 'cane', 'affondo-flessori'] },
+    spalle: { name: 'Spalle e collo', g: 'z', desc: 'Per chi tira pugni', ids: ['collo-lato', 'mento-petto', 'spalla-incrociata', 'tricipite', 'petto-muro', 'braccia-dietro', 'avambracci', 'laterale'] },
+  };
+  const exCost = (id, hold) => (EX[id].side ? 2 * hold + SWAP : hold);
+  // Sceglie gli esercizi per stare nella durata: in ordine; se avanza tanto tempo, ricomincia da capo
+  function fitStretch(c) {
+    const ids = (c.ids || []).filter((id) => EX[id]);
+    const out = []; let t = 0;
+    if (!ids.length) return { list: out, secs: 0 };
+    for (let pass = 0; pass < 4; pass++) {
+      if (pass > 0 && (!c.dur || t >= c.dur * 0.75)) break;
+      for (const id of ids) {
+        const cost = exCost(id, c.hold) + (out.length ? GAP : 0);
+        if (c.dur && out.length && t + cost > c.dur + 20) return { list: out, secs: t };
+        out.push(id); t += cost;
+      }
+    }
+    return { list: out, secs: t };
+  }
+  const stretchName = (c) => (c.r && ROUTINES[c.r] ? ROUTINES[c.r].name : 'Stretching') + (c.dur ? ' ' + fmtShort(c.dur) : '');
+
+  // Disegno a linea dell'esercizio (stesso stile per tutti)
+  function figSVG(id, cls) {
+    const ex = EX[id];
+    if (!ex) return '';
+    const q = {};
+    ex.p.split(' ').forEach((t) => { const [x, y] = t.slice(1).split(',').map(Number); q[t[0]] = [x, y]; });
+    const hl = new Set();
+    ex.hl.split(' ').forEach((h) => {
+      if (h.startsWith('arm')) { hl.add('ua' + h[3]); hl.add('fa' + h[3]); }
+      else if (h.startsWith('leg')) { hl.add('th' + h[3]); hl.add('sh' + h[3]); }
+      else hl.add(h);
+    });
+    const L = (a, b) => `M${q[a][0]} ${q[a][1]}L${q[b][0]} ${q[b][1]}`;
+    const segs = [
+      ['ua2', L('N', 'e'), 2], ['fa2', L('e', 'w'), 2], ['th2', L('P', 'k'), 2], ['sh2', L('k', 'f'), 2],
+      ['back', q.B ? `M${q.N[0]} ${q.N[1]}Q${q.B[0]} ${q.B[1]} ${q.P[0]} ${q.P[1]}` : L('N', 'P'), 1],
+      ['th1', L('P', 'K'), 1], ['sh1', L('K', 'F'), 1], ['ua1', L('N', 'E'), 1], ['fa1', L('E', 'W'), 1],
+    ];
+    // collo: dalle spalle al bordo della testa
+    const [hx, hy] = q.H, [nx, ny] = q.N, dl = Math.hypot(nx - hx, ny - hy) || 1, R = 6.5;
+    segs.splice(4, 0, ['neck', `M${nx} ${ny}L${(hx + (nx - hx) * R / dl).toFixed(1)} ${(hy + (ny - hy) * R / dl).toFixed(1)}`, 1]);
+    // punte dei piedi appoggiati
+    const toes = [];
+    if (ex.d) [['K', 'F', 1], ['k', 'f', 2]].forEach(([k, f, s]) => {
+      if (q[f][1] >= 88 && Math.abs(q[k][1] - q[f][1]) > 10) toes.push([`M${q[f][0]} ${q[f][1]}l${6 * ex.d} 0`, s]);
+    });
+    // ordine: lato lontano, testa, busto, lato vicino (così le mani sulla testa si vedono)
+    let glow = '', far = '', near = '';
+    segs.forEach(([k, d, s]) => {
+      if (hl.has(k)) glow += `<path d="${d}"/>`;
+      const el = `<path class="${hl.has(k) ? 'h' : 's' + s}${k === 'back' ? ' bk' : ''}" d="${d}"/>`;
+      if (s === 2) far += el; else near += el;
+    });
+    toes.forEach(([d, s]) => { if (s === 2) far = `<path class="s2" d="${d}"/>` + far; else near += `<path class="s1" d="${d}"/>`; });
+    const dots = ['N', 'P'].filter((k) => hl.has(k)).map((k) => `<circle class="hd" cx="${q[k][0]}" cy="${q[k][1]}" r="4.5"/>`).join('');
+    const ground = ex.top ? '' : '<path class="gr" d="M6 92.5H114"/>';
+    const wall = ex.wall ? `<path class="gr" d="M${ex.wall} 6V92.5"/>` : '';
+    return `<svg class="fig${cls ? ' ' + cls : ''}" viewBox="0 0 120 100" aria-hidden="true">${ground}${wall}<g class="glow">${glow}</g>${far}<circle class="hd0" cx="${hx}" cy="${hy}" r="${R}"/>${near}${dots}</svg>`;
+  }
+
   function blockTotal(b) { return b.t === 'rest' ? b.secs : TYPES[b.t].total(b); }
-  const label = (type, cfg) => type === 'mix' ? 'MIX ' + fmtShort(TYPES.mix.total(cfg)) : (TYPES[type].short || TYPES[type].name) + ' ' + TYPES[type].summary(cfg);
+  const label = (type, cfg) => type === 'stretch' ? stretchName(cfg) : type === 'mix' ? 'MIX ' + fmtShort(TYPES.mix.total(cfg)) : (TYPES[type].short || TYPES[type].name) + ' ' + TYPES[type].summary(cfg);
 
   // Blocchi di tempo di un timer (senza la preparazione)
   function segsFor(type, c) {
@@ -151,6 +261,17 @@
       seg.push({ kind: 'rest', secs: c.secs, label: 'Riposo' });
     } else if (type === 'recupero') {
       seg.push({ kind: 'rest', secs: c.secs, label: 'Recupero' });
+    } else if (type === 'stretch') {
+      const list = fitStretch(c).list, of = list.length;
+      list.forEach((id, k) => {
+        const base = { ex: id, k: k + 1, of, quiet: true };
+        if (k > 0) seg.push(Object.assign({ kind: 'rest', secs: GAP, label: 'Prossimo' }, base));
+        if (EX[id].side) {
+          seg.push(Object.assign({ kind: 'work', secs: c.hold, label: 'Tieni', sideTxt: 'lato destro' }, base));
+          seg.push(Object.assign({ kind: 'rest', secs: SWAP, label: 'Cambia lato', swap: true, sideTxt: 'ora il sinistro' }, base));
+          seg.push(Object.assign({ kind: 'work', secs: c.hold, label: 'Tieni', sideTxt: 'lato sinistro' }, base));
+        } else seg.push(Object.assign({ kind: 'work', secs: c.hold, label: 'Tieni' }, base));
+      });
     } else if (type === 'mix') {
       c.blocks.forEach((b, bi) => segsFor(b.t, b).forEach((s) => { s.b = bi; s.bt = b.t; seg.push(s); }));
     }
@@ -162,7 +283,7 @@
   }
 
   /* ================= Audio (solo suoni) ================= */
-  const audio = { ctx: null, ready: false, els: {} };
+  const audio = { ctx: null, ready: false, els: {}, mute: null };
   const AUDIO_MODE = 'wa';           // Web Audio (provato sull'iPhone: va insieme alla musica)
   const SOUNDS = {
     short: { f: 880, d: 0.2 }, long: { f: 1320, d: 0.7 }, half: { f: 660, d: 0.35 }, tic: { f: 1040, d: 0.09 },
@@ -195,8 +316,15 @@
 
   // Da chiamare dentro un tocco: iOS sblocca l'audio solo così
   function unlockAudio() {
-    // «playback»: suona anche col tasto silenzioso (la vecchia scelta della pagina di prova non conta più)
-    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* niente */ }
+    // iOS non permette entrambe le cose (provato sull'iPhone con prova-suono.html):
+    // «ambient» = va insieme alla musica ma il silenzioso lo zittisce;
+    // «playback» + traccia muta in loop = suona col silenzioso ma ferma la musica.
+    const silent = data.sound === 'silent';
+    try { if (navigator.audioSession) navigator.audioSession.type = silent ? 'playback' : 'ambient'; } catch (e) { /* niente */ }
+    if (silent) {
+      if (!audio.mute) { audio.mute = new Audio(wavUrl({ f: 440, d: 1 }, 0)); audio.mute.loop = true; audio.mute.setAttribute('playsinline', ''); }
+      audio.mute.play().catch(() => {});
+    }
     try {
       if (AUDIO_MODE === 'wa') {
         if (!audio.ctx) audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -249,6 +377,12 @@
       el.play().catch(() => {});
     }
   }
+  function stopMute() { if (audio.mute) audio.mute.pause(); }
+  function setSound(m) {
+    data.sound = m; persist();
+    stopMute();
+    if (audio.ctx) { audio.ctx.close().catch(() => {}); audio.ctx = null; audio.ready = false; }   // si ricrea al prossimo Via
+  }
   const beeps = (kind, times, gap) => { for (let k = 0; k < times; k++) setTimeout(() => beep(kind), k * gap); };
 
   const HOLD_MS = 450;               // tieni premuto per fermare: breve, ma evita i tocchi per sbaglio
@@ -297,14 +431,17 @@
     const finite = isFinite(s.secs);
 
     // segnali sonori
+    const st = run.type === 'stretch';
     if (i > 0) cue('s' + i, s.secs - 0.05, left, () => {
       if (s.bell) { if (s.kind === 'work') beep('bell'); else beeps('bell', 3, 260); }
+      else if (s.swap) beeps('tic', 2, 160);                // cambia lato: doppio bip
       else beep(s.kind === 'rest' ? 'half' : 'long');
       pulse(true);
     });
     const boxRound = s.bell && s.kind === 'work';
-    if (finite && s.secs >= 4 && !boxRound) for (const n of [3, 2, 1]) cue(i + ':' + n, n, left, () => { beep('short'); pulse(false); });
-    if (finite && s.kind === 'work' && s.secs >= 30) {
+    // stretching: 3-2-1 solo prima di una posizione, non alla fine
+    if (finite && s.secs >= 4 && !boxRound && !(st && s.kind === 'work')) for (const n of [3, 2, 1]) cue(i + ':' + n, n, left, () => { beep('short'); pulse(false); });
+    if (finite && s.kind === 'work' && s.secs >= 30 && !s.quiet) {
       if (!s.bell) cue(i + ':h', s.secs / 2, left, () => beep('half'));
       cue(i + ':10', 10, left, () => beeps('tic', 2, 140));
     }
@@ -318,7 +455,9 @@
     $('phase').textContent = segLabel(s);
     $('time').textContent = s.up ? fmt(into) : fmt(left);
     const frac = s.up ? (finite ? into / s.secs : (into % 60) / 60) : left / s.secs;
-    $('prog').style.strokeDashoffset = String(RING * (1 - frac));
+    const pg = $('prog');
+    if (pg) pg.style.strokeDashoffset = String(RING * (1 - frac));
+    if (st) return stretchTick(i, s, frac);
 
     let rr = '';
     if (s.round) rr = 'Round ' + s.round + '/' + s.of;
@@ -343,6 +482,46 @@
     if (act) act.disabled = run.type === 'fortime' ? s.kind !== 'work' : !isAmrap(s);
 
     if (!run.paused) run.raf = requestAnimationFrame(tick);
+  }
+
+  // Schermo dello stretching: figura, nome, lato, barra, cosa viene dopo
+  function stretchTick(i, s, frac) {
+    const seg = run.seg;
+    const w = s.kind === 'work' ? s : seg.slice(i + 1).find((x) => x.kind === 'work') || s;   // posizione mostrata
+    if (run.figAt !== w) {
+      run.figAt = w;
+      $('fig').innerHTML = figSVG(w.ex, 'big');
+      $('exname').textContent = EX[w.ex].n;
+      $('exhow').textContent = EX[w.ex].how;
+    }
+    $('exside').textContent = (s.swap ? s.sideTxt : w.sideTxt) || '';
+    $('fig').classList.toggle('flip', w.sideTxt === 'lato sinistro');   // lato sinistro = figura a specchio
+    $('rRound').textContent = w.k + '/' + w.of;
+    $('bar').style.transform = 'scaleX(' + Math.max(0, Math.min(1, frac)).toFixed(4) + ')';
+    const nx = seg[i + 1];
+    let nxt;
+    if (run.paused) nxt = 'In pausa · tocca per riprendere';
+    else if (s.kind !== 'work') nxt = 'poi: tieni ' + fmtShort(w.secs);
+    else if (!nx) nxt = 'ultima posizione';
+    else if (nx.swap) nxt = 'poi: cambia lato';
+    else { const nw = seg.slice(i + 1).find((x) => x.kind === 'work'); nxt = 'poi: ' + EX[nw.ex].n.toLowerCase(); }
+    $('next').textContent = nxt;
+    if (!run.paused) run.raf = requestAnimationFrame(tick);
+  }
+  // Salta alla prossima posizione (o al prossimo lato)
+  function skipNext() {
+    if (!run || run.over) return;
+    const el = elapsed(), at = locate(el);
+    if (!at) return;
+    let j = run.seg.findIndex((x, k) => k > at.i && x.kind === 'work');
+    if (j < 0) return finish(true);
+    if (j - 1 > at.i && run.seg[j - 1].kind === 'rest') j--;   // passa dalla pausa breve, così il 3-2-1 suona
+    let acc = 0;
+    for (let k = 0; k < j; k++) acc += run.seg[k].secs;
+    const target = acc + 0.01;
+    for (let k = 0; k < j; k++) { run.fired.add('s' + k); [3, 2, 1].forEach((n) => run.fired.add(k + ':' + n)); }
+    if (run.paused) run.pausedAt = run.start + target * 1000; else run.start = Date.now() - target * 1000;
+    cancelAnimationFrame(run.raf); tick();
   }
 
   function start(type, cfg, name, savedId) {
@@ -385,6 +564,7 @@
     run.over = true;
     cancelAnimationFrame(run.raf); clearInterval(run.iv);
     releaseAwake();
+    setTimeout(stopMute, 1500);   // dopo i bip finali: la musica si può far ripartire
 
     if (run.type === 'recupero') {
       if (completed) beeps('long', 2, 300);
@@ -416,11 +596,12 @@
 
   function render() {
     body.className = '';
-    if (view === 'home') { body.className = 'has-tabs'; root.innerHTML = data.section === 'diary' ? diaryHTML() : homeHTML(); }
-    else if (view === 'config') root.innerHTML = cur.type === 'mix' ? mixHTML() : configHTML();
+    if (view === 'home') { body.className = 'has-tabs'; root.innerHTML = data.section === 'diary' ? diaryHTML() : data.section === 'stretch' ? stretchHomeHTML() : homeHTML(); }
+    else if (view === 'config') root.innerHTML = cur.type === 'mix' ? mixHTML() : cur.type === 'stretch' ? stretchCfgHTML() : configHTML();
+    else if (view === 'pick' || view === 'lib') root.innerHTML = libHTML(view === 'pick');
     else if (view === 'recupero') root.innerHTML = recHTML();
-    else if (view === 'run') { body.className = 'running'; root.innerHTML = runHTML(); bindRun(); }
-    else if (view === 'done') { body.className = run.result.completed ? 'done' : 'stopped'; root.innerHTML = doneHTML(); }
+    else if (view === 'run') { body.className = 'running' + (run.type === 'stretch' ? ' srun' : ''); root.innerHTML = runHTML(); bindRun(); }
+    else if (view === 'done') { body.className = (run.result.completed ? 'done' : 'stopped') + (run.type === 'stretch' ? ' sdone' : ''); root.innerHTML = doneHTML(); }
     $('tabbar').hidden = view !== 'home';
     if (view === 'home') $('tabbar').innerHTML = SECTIONS.map((s) => `<button class="${s.k === data.section ? 'on' : ''}" data-act="sec" data-s="${s.k}" role="tab" aria-selected="${s.k === data.section}">${ICONS[s.k]}<span>${s.name}</span></button>`).join('');
     window.scrollTo(0, 0); root.scrollTop = 0;
@@ -431,11 +612,40 @@
     train: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.6 2.2M9.5 2.5h5M12 2.5v3.5M18.6 6.4l1.4-1.4"/></svg>',
     martial: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 11V7.5A4.5 4.5 0 0 1 12.5 3H14a4.5 4.5 0 0 1 4.5 4.5V13a5.5 5.5 0 0 1-5.5 5.5h-1.5A4.5 4.5 0 0 1 7 14v-.5"/><path d="M8 11a2.2 2.2 0 0 0-2.2 2.2v.1A2.2 2.2 0 0 0 8 15.5h3"/><path d="M8.5 18.5V21h8v-2.5M12 7.5h4"/></svg>',
   };
+  ICONS.stretch = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="13" cy="4.2" r="1.9"/><path d="M12.5 7.5 9.5 13l5 1.5 1 6.5M9.5 13l-4.5 7M12.5 7.5l5.5 2.5M12.5 7.5 7 6"/></svg>';
   ICONS.diary = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="8.5" cy="14.5" r="1"/><circle cx="12" cy="14.5" r="1"/></svg>';
-  const SECTIONS = [{ k: 'train', name: 'Allenamento' }, { k: 'martial', name: 'Arti marziali' }, { k: 'diary', name: 'Diario' }];
+  const SECTIONS = [{ k: 'train', name: 'Allenamento' }, { k: 'martial', name: 'Arti marziali' }, { k: 'stretch', name: 'Stretching' }, { k: 'diary', name: 'Diario' }];
   function lastName(l) {
     const s = l.savedId && data.saved.find((x) => x.id === l.savedId);
     return s ? s.name : l.custom ? l.name : label(l.type, Object.assign(clone(TYPES[l.type].def), l.cfg));
+  }
+
+  const SND_ICON = { mix: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17.5V6l10-2v11.5"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/></svg>',
+    silent: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5h12l-1.6-2.2V10a4.4 4.4 0 0 0-8.8 0v4.3z"/><path d="M10.2 19.5a2 2 0 0 0 3.6 0"/></svg>' };
+  function topHTML(title) {
+    return `<header class="top"><h1>${title}</h1>
+      <button class="icon snd" data-act="sound" aria-label="Suono">${SND_ICON[data.sound]}</button>
+      <button class="ver" id="ver">v${VERSION}</button></header>`;
+  }
+  // Suono: iOS fa scegliere tra «con la musica» e «col silenzioso»
+  function openSound() {
+    const sh = $('sheet');
+    const opt = (k, t, d) => `<button class="sopt${data.sound === k ? ' on' : ''}" data-s="${k}"><i>${SND_ICON[k]}</i><span><b>${t}</b><small>${d}</small></span><em>${data.sound === k ? '✓' : ''}</em></button>`;
+    sh.innerHTML = `
+      <div class="sbox" role="dialog" aria-label="Suono">
+        <h3>Suono dei bip</h3>
+        ${opt('mix', 'Insieme alla musica', 'Spotify continua. Togli il silenzioso, se no i bip non si sentono.')}
+        ${opt('silent', 'Anche col silenzioso', 'I bip si sentono sempre, ma la musica si ferma.')}
+        <p class="snote">L’iPhone non permette tutte e due le cose insieme a un’app web.</p>
+      </div>`;
+    sh.hidden = false;
+    const close = () => { sh.hidden = true; sh.innerHTML = ''; sh.onclick = null; };
+    sh.onclick = (e) => {
+      if (e.target === sh) return close();
+      const b = e.target.closest('[data-s]');
+      if (!b) return;
+      setSound(b.dataset.s); close(); render();
+    };
   }
 
   function homeHTML() {
@@ -466,11 +676,113 @@
         <i></i><span><b>${rec.name}</b><small>${rec.desc}</small></span><em>›</em>
       </button>` : '';
     return `
-      <header class="top"><h1>Sport</h1><button class="ver" id="ver">v${VERSION}</button></header>
+      ${topHTML('Sport')}
       <p class="secname">${SECTIONS.find((s) => s.k === sec).name}</p>
       ${repeat}
       <h2>I miei</h2>${mine}
       <h2>Nuovo</h2><div class="tiles">${grid}${wides}${extra}</div>`;
+  }
+
+  /* ================= Stretching: schermate ================= */
+  function stretchHomeHTML() {
+    const l = data.lastBy.stretch;
+    const sk = streak('stretch');
+    const repeat = l && l.type === 'stretch' ? `
+      <button class="repeat" data-act="repeat" style="--c:${LILAC}">
+        <span class="play">▶</span>
+        <span class="rtxt"><b>Ripeti</b><small>${esc(lastName(l))}</small></span>
+      </button>` : '';
+    const rtile = (k) => {
+      const r = ROUTINES[k];
+      return `<button class="tile stile" data-act="routine" data-r="${k}" style="--c:${LILAC}">
+          ${figSVG(r.ids[0], 'thumb')}<span><b>${r.name}</b><small>${r.desc}</small></span></button>`;
+    };
+    const mineList = data.saved.filter((x) => x.type === 'stretch');
+    const mine = `<div class="chips">
+        <button class="chip add" data-act="snew" style="--c:${LILAC}"><b>+ Nuova</b><small>scegli tu gli esercizi</small></button>
+        ${mineList.map((x) => `<button class="chip" data-act="openSaved" data-id="${esc(x.id)}" style="--c:${LILAC}"><b>${esc(x.name)}</b><small>${esc(TYPES.stretch.summary(x.cfg))}</small></button>`).join('')}
+      </div>`;
+    return `
+      ${topHTML('Sport')}
+      <p class="secname">Stretching${sk ? ` <span class="streak">${sk} ${sk === 1 ? 'giorno' : 'giorni di fila'}</span>` : ''}</p>
+      ${repeat}
+      <h2>Per momento</h2><div class="tiles">${Object.keys(ROUTINES).filter((k) => ROUTINES[k].g === 'm').map(rtile).join('')}</div>
+      <h2>Per zona</h2><div class="tiles">${Object.keys(ROUTINES).filter((k) => ROUTINES[k].g === 'z').map(rtile).join('')}</div>
+      <h2>I miei</h2>${mine}
+      <button class="tile wide" data-act="lib" style="--c:${LILAC};margin-top:22px">
+        <i></i><span><b>Esercizi</b><small>${Object.keys(EX).length} posizioni, con figura e spiegazione</small></span><em>›</em>
+      </button>`;
+  }
+
+  function stretchListHTML() {
+    const c = cur.cfg, fit = fitStretch(c);
+    const inFit = fit.list.length;
+    const rows = c.ids.map((id, i) => {
+      const e = EX[id];
+      if (!e) return '';
+      const out = c.dur && i >= inFit;
+      return `<div class="srow2${out ? ' out' : ''}">
+          <button class="sex" data-act="exinfo" data-id="${id}">${figSVG(id, 'thumb')}<span><b>${e.n}</b><small>${e.side ? '⇄ due lati · ' + fmtShort(c.hold) + ' + ' + fmtShort(c.hold) : fmtShort(c.hold)}${out ? ' · non entra' : ''}</small></span></button>
+          <button class="mini" data-act="sup" data-i="${i}" aria-label="Su"${i === 0 ? ' disabled' : ''}>↑</button>
+          <button class="mini" data-act="sdel" data-i="${i}" aria-label="Togli">✕</button>
+        </div>`;
+    }).join('');
+    const again = fit.list.length > c.ids.length ? ' · ripete da capo' : '';
+    return `${rows || '<p class="hint">Aggiungi gli esercizi dalla lista.</p>'}
+      <button class="addb" data-act="sadd" style="--c:${LILAC};width:100%;margin-top:4px">+ Aggiungi esercizio</button>
+      <p class="total">Totale <b id="total">${fit.secs ? fmt(fit.secs) : '—'}</b><span class="muted"> · ${fit.list.length} ${fit.list.length === 1 ? 'esercizio' : 'esercizi'}${again}</span></p>`;
+  }
+
+  function stretchCfgHTML() {
+    const t = TYPES.stretch, c = cur.cfg;
+    const saved = cur.savedId && data.saved.find((x) => x.id === cur.savedId);
+    const title = saved ? saved.name : c.r && ROUTINES[c.r] ? ROUTINES[c.r].name : 'Nuova routine';
+    const durs = [[300, '5′'], [600, '10′'], [900, '15′'], [0, 'Tutta']];
+    return `
+      <header class="bar" style="--c:${LILAC}">
+        <button class="icon" data-act="home" aria-label="Indietro">‹</button>
+        <h1>${esc(title)}</h1>
+        <span class="icon"></span>
+      </header>
+      <p class="sub muted">${c.r && ROUTINES[c.r] && !saved ? ROUTINES[c.r].desc : 'Routine tua'}</p>
+      <div class="seg">${durs.map(([v, txt]) => `<button class="${c.dur === v ? 'on' : ''}" data-act="sdur" data-v="${v}">${txt}</button>`).join('')}</div>
+      <div class="fields">${fieldRow(t.fields[0], c.hold)}</div>
+      <h2>Esercizi</h2>
+      <div class="slist" id="slist">${stretchListHTML()}</div>
+      ${saveRow(t, saved)}
+      <button class="btn primary go" data-act="go" style="--c:${LILAC}"${fitStretch(c).list.length ? '' : ' disabled'}>VIA</button>`;
+  }
+
+  const libZone = { z: 'all' };
+  function libHTML(pick) {
+    const zs = [['all', 'Tutti']].concat(Object.entries(ZONES));
+    const list = Object.entries(EX).filter(([, e]) => libZone.z === 'all' || e.z === libZone.z);
+    return `
+      <header class="bar" style="--c:${LILAC}">
+        <button class="icon" data-act="${pick ? 'pickBack' : 'home'}" aria-label="Indietro">‹</button>
+        <h1>${pick ? 'Aggiungi esercizio' : 'Esercizi'}</h1>
+        <span class="icon"></span>
+      </header>
+      <div class="zchips">${zs.map(([k, n]) => `<button class="${libZone.z === k ? 'on' : ''}" data-act="zone" data-z="${k}">${n}</button>`).join('')}</div>
+      <div class="lib">${list.map(([id, e]) => `
+        <button class="lrow" data-act="${pick ? 'spick' : 'exinfo'}" data-id="${id}">${figSVG(id, 'thumb')}
+          <span><b>${e.n}</b><small>${ZONES[e.z]}${e.side ? ' · due lati' : ''}</small></span><em>${pick ? '+' : '›'}</em></button>`).join('')}
+      </div>`;
+  }
+
+  function openExInfo(id) {
+    const e = EX[id], sh = $('sheet');
+    sh.innerHTML = `
+      <div class="sbox exbox" role="dialog" aria-label="${esc(e.n)}">
+        ${figSVG(id, 'big')}
+        <h3>${e.n}</h3>
+        <p class="exz">${ZONES[e.z]}${e.side ? ' · un lato alla volta' : ''}</p>
+        <p class="exhow">${e.how}</p>
+        <div class="srow one"><button class="btn ghost" data-s="ok">Chiudi</button></div>
+      </div>`;
+    sh.hidden = false;
+    const close = () => { sh.hidden = true; sh.innerHTML = ''; sh.onclick = null; };
+    sh.onclick = (ev) => { if (ev.target === sh || ev.target.closest('[data-s]')) close(); };
   }
 
   /* ================= Diario ================= */
@@ -483,8 +795,8 @@
   const diary = { y: new Date().getFullYear(), m: new Date().getMonth(), day: null };
   const sessions = () => data.history.filter((h) => h.secs >= 30);   // sotto i 30 s non conta
 
-  function streak() {
-    const days = new Set(sessions().map((h) => dkey(h.at)));
+  function streak(sec) {
+    const days = new Set(sessions().filter((h) => !sec || secOf(h) === sec).map((h) => dkey(h.at)));
     const d = new Date(); d.setHours(12, 0, 0, 0);
     if (!days.has(dkey(d.getTime()))) d.setDate(d.getDate() - 1);   // oggi non ancora: conta da ieri
     let n = 0;
@@ -551,7 +863,7 @@
         </div>
         <div class="dow"><span>L</span><span>M</span><span>M</span><span>G</span><span>V</span><span>S</span><span>D</span></div>
         <div class="grid">${cells}</div>
-        <div class="legend"><span style="--c:${SEC_COLOR.train}">Allenamento</span><span style="--c:${SEC_COLOR.martial}">Arti marziali</span></div>
+        <div class="legend"><span style="--c:${SEC_COLOR.train}">Allenamento</span><span style="--c:${SEC_COLOR.martial}">Arti marziali</span><span style="--c:${SEC_COLOR.stretch}">Stretching</span></div>
       </section>
       <h2>${ltitle}${diary.day ? ' <button class="link" data-act="dayAll">tutte</button>' : ''}</h2>
       <div class="hlist">${rows}</div>
@@ -728,6 +1040,22 @@
 
   function runHTML() {
     const t = TYPES[run.type];
+    if (run.type === 'stretch') return `
+      <div class="rtop"><span id="rName">${esc(run.name)}</span><span id="rRound"></span></div>
+      <section class="stage sstage" id="stage">
+        <div class="phase" id="phase"></div>
+        <div class="figbox" id="fig"></div>
+        <div class="exname" id="exname"></div>
+        <div class="exside" id="exside"></div>
+        <div class="time" id="time"></div>
+        <div class="sbar"><span id="bar"></span></div>
+        <div class="next" id="next"></div>
+        <div class="exhow small" id="exhow"></div>
+      </section>
+      <div class="ractions srow3" style="--c:${t.color}">
+        <button class="btn hold" id="stop"><span class="fill"></span><span class="lbl">Tieni premuto per fermare</span></button>
+        <button class="btn skip" id="skip">Salta ›</button>
+      </div>`;
     const hasAmrap = run.type === 'amrap' || (run.type === 'mix' && run.cfg.blocks.some((b) => b.t === 'amrap'));
     const act = hasAmrap ? '<button class="btn big" id="act">+1 ROUND</button><button class="undo" id="undo" hidden>annulla ultimo round</button>'
       : run.type === 'fortime' ? '<button class="btn big" id="act">FINITO</button>' : '';
@@ -759,12 +1087,15 @@
     if (run.rounds) bits.push(run.rounds + ' round');
     if (run.cfg.rounds) bits.push(r.completed ? run.cfg.rounds + ' round' : 'round ' + run.reached + '/' + run.cfg.rounds);
     if (run.type === 'mix') bits.push(run.cfg.blocks.length + ' blocchi');
+    if (run.type === 'stretch') bits.push(fitStretch(run.cfg).list.length + ' esercizi');
+    const sk = run.type === 'stretch' && r.completed ? streak('stretch') : 0;
     return `
       <section class="donebox">
         <div class="badge">${r.completed ? '✓' : '■'}</div>
         <h1>${r.completed ? 'Fatto' : 'Fermato'}</h1>
         <p class="dname">${esc(run.name)}</p>
         <p class="dstats">${bits.join(' · ')}</p>
+        ${sk ? `<p class="dstreak">${sk} ${sk === 1 ? 'giorno' : 'giorni di fila'} di stretching</p>` : ''}
       </section>
       <div class="dactions">
         ${run.savedId ? '' : '<button class="btn ghost" data-act="saveDone">☆ Salva allenamento</button>'}
@@ -809,6 +1140,11 @@
     return { obj: cur.cfg, fields: TYPES[cur.type].fields, b: null };
   }
   function refreshTotals() {
+    if (cur.type === 'stretch') {
+      const l = $('slist'); if (l) l.innerHTML = stretchListHTML();
+      const g = root.querySelector('[data-act="go"]'); if (g) g.disabled = !fitStretch(cur.cfg).list.length;
+      return;
+    }
     const tot = TYPES[cur.type].total(cur.cfg);
     const t = $('total'); if (t) t.textContent = tot ? fmt(tot) : '—';
     if (cur.type === 'mix') cur.cfg.blocks.forEach((bk, i) => { const s = $('bs' + i); if (s) s.textContent = fmt(blockTotal(bk)); });
@@ -818,6 +1154,7 @@
     const f = ctx.fields.find((x) => x.k === k);
     v = Math.round(Math.min(f.max, Math.max(f.min, v)));
     ctx.obj[k] = v;
+    if (cur.type === 'stretch' && k === 'hold') { data.sHold = v; persist(); }
     const sel = '.val[data-k="' + k + '"]' + (ctx.b === null ? ':not([data-b])' : '[data-b="' + ctx.b + '"]');
     const inp = root.querySelector(sel);
     if (inp) inp.value = fieldDisp(f, v);
@@ -847,6 +1184,23 @@
       if (l && TYPES[l.type]) { const s = l.savedId && data.saved.find((x) => x.id === l.savedId); start(l.type, Object.assign(clone(TYPES[l.type].def), clone(l.cfg)), s ? s.name : l.custom ? l.name : null, s ? s.id : null); }
     }
     else if (a === 'sec') { data.section = b.dataset.s; persist(); render(); }
+    else if (a === 'sound') openSound();
+    else if (a === 'routine') { const r = ROUTINES[b.dataset.r]; cur = { type: 'stretch', cfg: { r: b.dataset.r, ids: r.ids.slice(), hold: data.sHold || 30, dur: data.sDur === undefined ? 600 : data.sDur }, savedId: null, name: '' }; view = 'config'; render(); }
+    else if (a === 'snew') { cur = { type: 'stretch', cfg: { r: null, ids: [], hold: data.sHold || 30, dur: 0 }, savedId: null, name: '' }; view = 'config'; render(); }
+    else if (a === 'lib') { libZone.z = 'all'; view = 'lib'; render(); }
+    else if (a === 'exinfo') openExInfo(b.dataset.id);
+    else if (a === 'zone') { libZone.z = b.dataset.z; render(); }
+    else if (a === 'sadd') { view = 'pick'; render(); }
+    else if (a === 'pickBack') { view = 'config'; render(); }
+    else if (a === 'spick') { cur.cfg.ids.push(b.dataset.id); view = 'config'; render(); const l = $('slist'); if (l) l.lastElementChild.scrollIntoView({ block: 'center' }); }
+    else if (a === 'sdel') { cur.cfg.ids.splice(+b.dataset.i, 1); refreshTotals(); }
+    else if (a === 'sup') { const i = +b.dataset.i, x = cur.cfg.ids; [x[i - 1], x[i]] = [x[i], x[i - 1]]; refreshTotals(); }
+    else if (a === 'sdur') {
+      cur.cfg.dur = +b.dataset.v;
+      if (cur.cfg.r && !cur.savedId) { data.sDur = cur.cfg.dur; persist(); }
+      root.querySelectorAll('.seg button').forEach((x) => x.classList.toggle('on', x === b));
+      refreshTotals();
+    }
     else if (a === 'go') {
       const s = cur.savedId && data.saved.find((x) => x.id === cur.savedId);
       const nm = (cur.name || '').trim();
@@ -867,7 +1221,7 @@
       openSheet((cur.name || '').trim() || (s ? s.name : label(cur.type, cur.cfg)), !!s, (res, name) => {
         if (res === 'del') {
           data.saved = data.saved.filter((x) => x.id !== s.id);
-          [data.last, data.lastBy.train, data.lastBy.martial].forEach((l) => { if (l && l.savedId === s.id) l.savedId = null; });
+          [data.last, data.lastBy.train, data.lastBy.martial, data.lastBy.stretch].forEach((l) => { if (l && l.savedId === s.id) l.savedId = null; });
           cur.savedId = null;
         } else if (s) { s.name = name; s.cfg = clone(cur.cfg); }
         else { const id = uid(); data.saved.push({ id, name, type: cur.type, cfg: clone(cur.cfg) }); cur.savedId = id; }
@@ -935,6 +1289,8 @@
 
   function bindRun() {
     $('stage').addEventListener('click', togglePause);
+    const sk = $('skip');
+    if (sk) sk.addEventListener('click', skipNext);
     const act = $('act');
     if (act && run.type !== 'fortime') {
       let undoT = 0;
@@ -991,5 +1347,6 @@
     });
   }
 
+  window.__sport = { figSVG, EX };   // per controllare le figure dal Mac
   render();
 })();
