@@ -1,7 +1,7 @@
 /* Sport — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.7.2';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.7.3';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 6;                    // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -660,6 +660,18 @@
     };
   }
 
+  // Un salvato: etichetta colorata (tipo) + una sola scritta grande, senza ripetere
+  function chipHTML(x) {
+    const t = TYPES[x.type];
+    const sum = x.type === 'mix' ? fmtShort(TYPES.mix.total(x.cfg)) : x.type === 'stretch' ? fmtShort(fitStretch(x.cfg).secs) : t.summary(x.cfg);
+    const tname = x.type === 'boxe' ? 'Round' : t.name;
+    const plain = x.name === label(x.type, x.cfg) || x.name.includes(sum) || x.name === tname;
+    const tag = plain ? tname : tname + ' · ' + sum;
+    const main = plain ? sum : x.name;
+    return `<button class="chip v2" data-act="openSaved" data-id="${esc(x.id)}" style="--c:${t.color}">
+        <em>${esc(tag)}</em><b>${esc(main)}</b></button>`;
+  }
+
   function homeHTML() {
     const sec = data.section;
     const l = data.lastBy[sec];
@@ -670,10 +682,7 @@
       </button>` : '';
     const savedHere = data.saved.filter((s) => TYPES[s.type] && TYPES[s.type].sec === sec);
     const mine = savedHere.length
-      ? `<div class="chips">${savedHere.map((s) => `
-          <button class="chip" data-act="openSaved" data-id="${esc(s.id)}" style="--c:${TYPES[s.type].color}">
-            <b>${esc(s.name)}</b><small>${esc((s.type === 'boxe' ? '' : TYPES[s.type].name + ' · ') + (s.type === 'mix' ? fmtShort(TYPES.mix.total(s.cfg)) : TYPES[s.type].summary(s.cfg)))}</small>
-          </button>`).join('')}</div>`
+      ? `<div class="chips">${savedHere.map(chipHTML).join('')}</div>`
       : '<p class="hint">Qui trovi i timer che salvi.</p>';
     const tile = (k, t) => `
       <button class="tile${t.wide || sec === 'martial' ? ' wide' : ''}" data-act="new" data-type="${k}" style="--c:${t.color}">
@@ -711,8 +720,8 @@
     };
     const mineList = data.saved.filter((x) => x.type === 'stretch');
     const mine = `<div class="chips">
-        <button class="chip add" data-act="snew" style="--c:${LILAC}"><b>+ Nuova</b><small>scegli tu gli esercizi</small></button>
-        ${mineList.map((x) => `<button class="chip" data-act="openSaved" data-id="${esc(x.id)}" style="--c:${LILAC}"><b>${esc(x.name)}</b><small>${esc(TYPES.stretch.summary(x.cfg))}</small></button>`).join('')}
+        <button class="chip add" data-act="snew" style="--c:${LILAC}"><b>+ Nuova</b></button>
+        ${mineList.map(chipHTML).join('')}
       </div>`;
     return `
       ${topHTML('Sport')}

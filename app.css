@@ -444,3 +444,14 @@ body.has-tabs .app > * { flex-shrink: 0; }
 .fig .ah { fill: var(--lilac-2); }
 .fig .hn { fill: #E5E5EA; }
 .fig.thumb .arw, .fig.thumb .hn { display: none; }
+/* I miei: etichetta colorata + una sola scritta */
+.chip.v2 { gap: 4px; min-width: 120px; padding: 12px 16px 13px; border-left: 0; border-radius: 18px;
+  background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--c) 16%, transparent), transparent 65%), var(--surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 22%, transparent); }
+.chip.v2 em { font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--c); white-space: nowrap; }
+.chip.v2 b { font-size: 19px; font-weight: 800; letter-spacing: -.01em; }
+.chip.add { justify-content: center; align-items: center; min-width: 96px; border-radius: 18px; }
+.chip.add b { font-size: 17px; }
+/* Menu: più vicino al bordo (l'iPhone aggiunge già la sua zona sotto) e fondo che arriva fino in basso */
+.tabbar { padding: 6px 12px max(calc(env(safe-area-inset-bottom) - 14px), 6px); }
+.tabbar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 80px; background: inherit; }
