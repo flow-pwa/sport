@@ -1,7 +1,7 @@
 /* Sport — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.7.0';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.7.1';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 10;                   // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -519,6 +519,7 @@
     let acc = 0;
     for (let k = 0; k < j; k++) acc += run.seg[k].secs;
     const target = acc + 0.01;
+    run.skipped = (run.skipped || 0) + Math.max(0, target - el);   // il tempo saltato non conta nel Diario
     for (let k = 0; k < j; k++) { run.fired.add('s' + k); [3, 2, 1].forEach((n) => run.fired.add(k + ':' + n)); }
     if (run.paused) run.pausedAt = run.start + target * 1000; else run.start = Date.now() - target * 1000;
     cancelAnimationFrame(run.raf); tick();
@@ -574,7 +575,7 @@
     }
 
     const total = TYPES[run.type].total(run.cfg);
-    const secs = run.type === 'fortime' ? Math.min(el, run.cfg.cap || el) : completed ? total : el;
+    const secs = run.type === 'fortime' ? Math.min(el, run.cfg.cap || el) : Math.max(0, (completed ? total : el) - (run.skipped || 0));
     run.result = { secs, completed };
     if (el > 0) {
       data.history.unshift({
