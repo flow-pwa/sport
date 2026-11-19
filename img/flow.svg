@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512">
+  <!-- Flow, logo «Tramonto» 0.10.1: infinito con filo scuro sottile e pallino perla. PNG con: qlmanage -t -s 512 (vedi Claude/docs/app-sport.md) -->
+  <defs>
+    <linearGradient id="g" x1="14" y1="40" x2="86" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FF2D55"/><stop offset=".3" stop-color="#FF6A00"/><stop offset=".5" stop-color="#FFC400"/><stop offset=".75" stop-color="#E040FB"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient>
+    <radialGradient id="bg" cx=".5" cy=".45" r=".75"><stop offset="0" stop-color="#1B1A23"/><stop offset="1" stop-color="#0B0B0F"/></radialGradient>
+    <radialGradient id="p" cx=".38" cy=".35" r=".75"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".7" stop-color="#F1F1F5"/><stop offset="1" stop-color="#C9C9D3"/></radialGradient>
+    <filter id="glow" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="6"/></filter>
+    <filter id="b" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="1.4"/></filter>
+    <path id="inf" d="M50 50 C40 33 18 33 18 50 C18 67 40 67 50 50 C60 33 82 33 82 50 C82 67 60 67 50 50 Z"/>
+  </defs>
+  <rect width="100" height="100" fill="url(#bg)"/>
+  <g transform="translate(50 50) scale(1.1) translate(-50 -50)">
+    <use href="#inf" fill="none" stroke="url(#g)" stroke-width="8.5" opacity=".55" filter="url(#glow)"/>
+    <use href="#inf" fill="none" stroke="#08080B" stroke-opacity=".6" stroke-width="9.6" stroke-linejoin="round"/>
+    <use href="#inf" fill="none" stroke="url(#g)" stroke-width="8.5" stroke-linejoin="round"/>
+    <circle cx="18" cy="50" r="5.4" fill="#fff" opacity=".22" filter="url(#b)"/>
+    <circle cx="18" cy="50" r="3.3" fill="url(#p)"/>
+  </g>
+</svg>

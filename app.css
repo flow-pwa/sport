@@ -464,7 +464,7 @@ body.dragmode { -webkit-user-select: none; user-select: none; }
 .tabbar { padding-bottom: max(calc(env(safe-area-inset-bottom) - 28px), 2px); }
 /* Nome e logo */
 .top h1.brand { display: flex; align-items: center; gap: 10px; }
-.top .logo { width: 46px; height: 26px; flex: none; }
+.top .logo { width: 46px; height: 26px; flex: none; overflow: visible; }
 /* Backup: promemoria e ripristino */
 .bkcard { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px 16px; margin-bottom: 14px; border-radius: 20px;
   background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--rest) 18%, transparent), transparent 60%), var(--surface);

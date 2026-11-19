@@ -9,7 +9,7 @@
   "background_color": "#0B0B0F",
   "theme_color": "#0B0B0F",
   "icons": [
-    { "src": "img/flow-180.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "img/flow-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "img/flow2-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "img/flow2-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }

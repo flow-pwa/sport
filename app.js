@@ -1,7 +1,7 @@
 /* Flow (ex Sport) — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.10.0';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.10.1';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 6;                    // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -636,7 +636,7 @@
 
   const SND_ICON = { mix: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17.5V6l10-2v11.5"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/></svg>',
     silent: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5h12l-1.6-2.2V10a4.4 4.4 0 0 0-8.8 0v4.3z"/><path d="M10.2 19.5a2 2 0 0 0 3.6 0"/></svg>' };
-  const LOGO = '<svg class="logo" viewBox="14 30 72 40" aria-hidden="true"><defs><linearGradient id="lg" x1="14" y1="40" x2="86" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FF2D55"/><stop offset=".3" stop-color="#FF6A00"/><stop offset=".5" stop-color="#FFC400"/><stop offset=".75" stop-color="#E040FB"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient></defs><path d="M50 50 C40 33 18 33 18 50 C18 67 40 67 50 50 C60 33 82 33 82 50 C82 67 60 67 50 50 Z" fill="none" stroke="url(#lg)" stroke-width="8.5" stroke-linejoin="round"/><circle cx="18" cy="50" r="5" fill="#F5F5F7"/></svg>';
+  const LOGO = '<svg class="logo" viewBox="14 30 72 40" aria-hidden="true"><defs><linearGradient id="lg" x1="14" y1="40" x2="86" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FF2D55"/><stop offset=".3" stop-color="#FF6A00"/><stop offset=".5" stop-color="#FFC400"/><stop offset=".75" stop-color="#E040FB"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient><radialGradient id="lp" cx=".38" cy=".35" r=".75"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".7" stop-color="#F1F1F5"/><stop offset="1" stop-color="#C9C9D3"/></radialGradient><filter id="lb" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="1.4"/></filter><path id="linf" d="M50 50 C40 33 18 33 18 50 C18 67 40 67 50 50 C60 33 82 33 82 50 C82 67 60 67 50 50 Z"/></defs><use href="#linf" fill="none" stroke="#08080B" stroke-opacity=".6" stroke-width="9.6" stroke-linejoin="round"/><use href="#linf" fill="none" stroke="url(#lg)" stroke-width="8.5" stroke-linejoin="round"/><circle cx="18" cy="50" r="5.4" fill="#fff" opacity=".22" filter="url(#lb)"/><circle cx="18" cy="50" r="3.3" fill="url(#lp)"/></svg>';
   function topHTML(title) {
     return `<header class="top"><h1 class="brand">${LOGO}${title}</h1>
       <button class="icon snd" data-act="sound" aria-label="Suono">${SND_ICON[data.sound]}</button>
