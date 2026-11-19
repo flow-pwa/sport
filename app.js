@@ -1,7 +1,7 @@
 /* Flow (ex Sport) — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.9.1';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.9.2';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 6;                    // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
