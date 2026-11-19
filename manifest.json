@@ -1,0 +1,15 @@
+{
+  "name": "Sport",
+  "short_name": "Sport",
+  "lang": "it",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B0B0F",
+  "theme_color": "#0B0B0F",
+  "icons": [
+    { "src": "img/icona-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "img/icona-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
