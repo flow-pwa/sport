@@ -1,7 +1,7 @@
 /* Flow (ex Sport) — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.13.0';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.14.0';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 6;                    // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -25,6 +25,7 @@
     d.backupAt = d.backupAt || 0;
     d.lastBy = d.lastBy || {};
     d.sound = d.sound === 'silent' ? 'silent' : 'mix';   // mix = insieme alla musica · silent = anche col silenzioso
+    d.tone = ['soft', 'glass', 'classic'].includes(d.tone) ? d.tone : 'soft';   // tipo di bip (da 0.14.0)
     return d;
   })();
   if (data.last && TYPES_SEC_OF(data.last.type) && !data.lastBy[TYPES_SEC_OF(data.last.type)]) data.lastBy[TYPES_SEC_OF(data.last.type)] = data.last;
@@ -371,10 +372,16 @@
   const audio = { ctx: null, ready: false, els: {}, mute: null };
   const AUDIO_MODE = 'wa';           // Web Audio (provato sull'iPhone: va insieme alla musica)
   const SOUNDS = {
-    short: { f: 880, d: 0.2 }, long: { f: 1320, d: 0.7 }, half: { f: 660, d: 0.35 }, tic: { f: 1040, d: 0.09 },
+    short: { f: 880, d: 0.2 }, long: { f: 1318.5, d: 0.7 }, half: { f: 659.3, d: 0.35 }, tic: { f: 1046.5, d: 0.09 },   // note intonate: La, Mi, Mi, Do
     bell: { f: 830, d: 1.8, bell: true },     // campanella del ring
   };
   const BELL = [[1, 1], [2.76, 0.5], [5.4, 0.25], [8.93, 0.12]];
+  // Tipi di bip (data.tone): parti = [multiplo della nota, volume, forma, spegnimento rapido in s]
+  const TONES = {
+    soft: { name: 'Morbido', desc: 'Tipo marimba, rotondo', pitch: 1, len: 1.5, vol: 1, parts: [[1, 0.62], [2, 0.22, 'triangle', 0.12], [4, 0.1, 'sine', 0.05]] },
+    glass: { name: 'Cristallo', desc: 'Campanellino leggero', pitch: 1.5, len: 2.6, vol: 0.9, parts: [[1, 0.55], [2.4, 0.22, 'sine', 0.4], [4.1, 0.1, 'sine', 0.15]] },
+    classic: { name: 'Classico', desc: 'Il bip di prima, secco' },
+  };
 
   function wavUrl(snd, vol) {
     const rate = 44100, n = Math.floor(rate * snd.d);
@@ -445,8 +452,20 @@
           o.type = 'sine'; o.frequency.value = snd.f * p; og.gain.value = amp / 1.87;
           o.connect(og); og.connect(g); o.start(t); o.stop(t + snd.d + 0.05);
         });
+      } else if (data.tone !== 'classic') {
+        // morbido (marimba) o cristallo (campanellino): note sinusoidali che sfumano da sole
+        const T = TONES[data.tone] || TONES.soft, end = t + snd.d * T.len;
+        g.gain.exponentialRampToValueAtTime(T.vol, t + 0.004);
+        g.gain.exponentialRampToValueAtTime(0.0001, end);
+        T.parts.forEach(([p, amp, type, fast]) => {
+          const o = ctx.createOscillator(), og = ctx.createGain();
+          o.type = type || 'sine'; o.frequency.value = snd.f * T.pitch * p;
+          og.gain.setValueAtTime(amp, t);
+          if (fast) og.gain.exponentialRampToValueAtTime(0.0001, t + fast);   // gli armonici alti si spengono prima: suono più rotondo
+          o.connect(og); og.connect(g); o.start(t); o.stop(end + 0.03);
+        });
       } else {
-        // nota + ottava sopra: suono pieno e udibile dall'altoparlante del telefono
+        // classico: nota + ottava sopra, quadra (il suono di prima)
         g.gain.exponentialRampToValueAtTime(1, t + 0.008);
         g.gain.setValueAtTime(1, t + snd.d * 0.6);
         g.gain.exponentialRampToValueAtTime(0.0001, t + snd.d);
@@ -742,11 +761,21 @@
         ${opt('mix', 'Insieme alla musica', 'Spotify continua. Togli il silenzioso, se no i bip non si sentono.')}
         ${opt('silent', 'Anche col silenzioso', 'I bip si sentono sempre, ma la musica si ferma.')}
         <p class="snote">L’iPhone non permette tutte e due le cose insieme a un’app web.</p>
+        <h3 class="sh2">Tipo di bip</h3>
+        <div class="tones">${Object.entries(TONES).map(([k, T]) => `<button class="tone${(data.tone || 'soft') === k ? ' on' : ''}" data-t="${k}"><b>${T.name}</b><small>${T.desc}</small></button>`).join('')}</div>
+        <p class="snote">Tocca per sentirlo.</p>
       </div>`;
     sh.hidden = false;
     const close = () => { sh.hidden = true; sh.innerHTML = ''; sh.onclick = null; };
     sh.onclick = (e) => {
       if (e.target === sh) return close();
+      const tb = e.target.closest('[data-t]');
+      if (tb) {   // tipo di bip: lo salva e lo fa sentire (3-2-1 e partenza)
+        data.tone = tb.dataset.t; persist(); unlockAudio();
+        sh.querySelectorAll('.tone').forEach((x) => x.classList.toggle('on', x === tb));
+        [0, 1, 2].forEach((n) => setTimeout(() => beep('short'), n * 450)); setTimeout(() => beep('long'), 1350);
+        return;
+      }
       const b = e.target.closest('[data-s]');
       if (!b) return;
       setSound(b.dataset.s); close(); render();
@@ -1026,6 +1055,13 @@
     const close = () => { sh.hidden = true; sh.innerHTML = ''; sh.onclick = null; };
     sh.onclick = (e) => {
       if (e.target === sh) return close();
+      const tb = e.target.closest('[data-t]');
+      if (tb) {   // tipo di bip: lo salva e lo fa sentire (3-2-1 e partenza)
+        data.tone = tb.dataset.t; persist(); unlockAudio();
+        sh.querySelectorAll('.tone').forEach((x) => x.classList.toggle('on', x === tb));
+        [0, 1, 2].forEach((n) => setTimeout(() => beep('short'), n * 450)); setTimeout(() => beep('long'), 1350);
+        return;
+      }
       const b = e.target.closest('[data-s]');
       if (!b) return;
       close();
@@ -1085,6 +1121,13 @@
     const close = () => { sh.hidden = true; sh.innerHTML = ''; sh.onclick = null; };
     sh.onclick = (e) => {
       if (e.target === sh) return close();
+      const tb = e.target.closest('[data-t]');
+      if (tb) {   // tipo di bip: lo salva e lo fa sentire (3-2-1 e partenza)
+        data.tone = tb.dataset.t; persist(); unlockAudio();
+        sh.querySelectorAll('.tone').forEach((x) => x.classList.toggle('on', x === tb));
+        [0, 1, 2].forEach((n) => setTimeout(() => beep('short'), n * 450)); setTimeout(() => beep('long'), 1350);
+        return;
+      }
       const b = e.target.closest('[data-s]');
       if (!b) return;
       close();
