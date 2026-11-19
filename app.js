@@ -1,7 +1,7 @@
 /* Sport — passo 1: pagina di prova (timer 10 s + 60 s, solo suoni, schermo acceso, offline) */
 (() => {
   'use strict';
-  const VERSION = '0.2.0';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.2.1';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92
   const $ = (id) => document.getElementById(id);
   const body = document.body;
@@ -267,8 +267,15 @@
     // Aggiornamento automatico: la nuova versione si installa da sola e la pagina
     // si ricarica appena il timer è fermo (mai durante un allenamento)
     const hadController = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.register('sw.js').then((reg) => {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
       document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update(); });
+      // Tocco sulla versione = cerca subito una versione nuova
+      $('ver').addEventListener('click', () => {
+        $('ver').textContent = 'controllo…';
+        reg.update().then(() => setTimeout(() => {
+          if (!reg.installing && !reg.waiting) $('ver').textContent = 'v' + VERSION + ' ✓ aggiornata';
+        }, 1500)).catch(() => { $('ver').textContent = 'v' + VERSION + ' · offline'; });
+      });
     }).catch((e) => check('off', 'bad', 'Errore: ' + e.name));
     navigator.serviceWorker.ready.then(() => {
       const ctrl = !!navigator.serviceWorker.controller;

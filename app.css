@@ -34,7 +34,7 @@ button, select { font: inherit; color: inherit; }
 .top { display: flex; align-items: baseline; gap: 8px; }
 .brand { font-weight: 800; font-size: 22px; letter-spacing: -.02em; }
 .tag { font-size: 12px; color: var(--ink); background: var(--prep); border-radius: 99px; padding: 1px 8px; font-weight: 700; }
-.ver { margin-left: auto; color: var(--muted); font-size: 13px; }
+.ver { margin-left: auto; color: var(--muted); font-size: 13px; padding: 8px 0 8px 12px; cursor: pointer; }
 
 /* Palco del timer */
 .stage { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; cursor: pointer; }
