@@ -7,73 +7,16 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Sport">
-<meta name="theme-color" content="#0B0B0F">
+<meta name="theme-color" content="#0A0A0E">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="img/icona-180.png">
 <link rel="icon" href="img/icona-180.png">
 <link rel="stylesheet" href="app.css">
 <title>Sport</title>
 </head>
-<body class="idle">
-
-<main class="app">
-  <header class="top">
-    <span class="brand">Sport</span>
-    <span class="tag">prova</span>
-    <span id="ver" class="ver"></span>
-  </header>
-
-  <section class="stage" id="stage" aria-live="polite">
-    <div class="phase" id="phase">Prova 60 s</div>
-    <div class="dial">
-      <svg viewBox="0 0 200 200" class="ring" aria-hidden="true">
-        <defs><linearGradient id="gr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="g1"/><stop offset="1" class="g2"/></linearGradient></defs>
-        <circle class="track" cx="100" cy="100" r="92"/>
-        <circle class="prog" id="prog" cx="100" cy="100" r="92"/>
-      </svg>
-      <div class="time" id="time">1:00</div>
-    </div>
-    <div class="next" id="next">10 s per prepararti, poi 60 s</div>
-  </section>
-
-  <div class="controls">
-    <button id="go" class="btn primary">Via</button>
-    <button id="stop" class="btn hold" hidden><span class="fill"></span><span class="lbl">Tieni premuto per fermare</span></button>
-  </div>
-
-  <section class="panel" id="checks">
-    <h2>Controlli</h2>
-    <ul>
-      <li data-k="home"><i></i><b>Aperta dall'icona Home</b><span>—</span></li>
-      <li data-k="off"><i></i><b>Funziona senza rete</b><span>—</span></li>
-      <li data-k="wake"><i></i><b>Schermo sempre acceso</b><span>parte con Via</span></li>
-      <li data-k="audio"><i></i><b>Suono</b><span>parte con Via</span></li>
-    </ul>
-  </section>
-
-  <section class="panel">
-    <h2>Suono</h2>
-    <div class="row">
-      <label for="amode">Motore</label>
-      <select id="amode">
-        <option value="wa">Web Audio</option>
-        <option value="el">Elemento audio</option>
-      </select>
-    </div>
-    <div class="row">
-      <label for="asess">Sessione iOS</label>
-      <select id="asess">
-        <option value="auto">Automatica</option>
-        <option value="transient">Breve (abbassa la musica)</option>
-        <option value="ambient">Ambiente (con la musica)</option>
-        <option value="playback">Riproduzione (ignora silenzioso)</option>
-      </select>
-    </div>
-    <div class="row btns">
-      <button class="btn small" id="tBeep">Prova suoni (3, 2, 1, via)</button>
-    </div>
-  </section>
-</main>
+<body>
+<main id="app" class="app"></main>
+<div id="sheet" class="sheet" hidden></div>
 <script src="app.js"></script>
 </body>
 </html>
