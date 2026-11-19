@@ -1,7 +1,7 @@
 /* Sport — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.4.0';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.5.0';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 10;                   // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -20,10 +20,14 @@
     d.history = Array.isArray(d.history) ? d.history : [];
     d.last = d.last || null;
     d.rec = d.rec || { n: 0, at: 0, secs: 90 };
+    d.section = d.section === 'martial' ? 'martial' : 'train';
+    d.lastBy = d.lastBy || {};
     return d;
   })();
+  if (data.last && TYPES_SEC_OF(data.last.type) && !data.lastBy[TYPES_SEC_OF(data.last.type)]) data.lastBy[TYPES_SEC_OF(data.last.type)] = data.last;
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* memoria piena o bloccata */ } }
   const pref = (k, d) => { try { return localStorage.getItem('sport.' + k) || d; } catch (e) { return d; } };
+  function TYPES_SEC_OF(type) { return type === 'boxe' ? 'martial' : type ? 'train' : null; }
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   /* ================= Formati ================= */
@@ -54,7 +58,7 @@
   /* ================= Tipi di timer ================= */
   const TYPES = {
     emom: {
-      name: 'EMOM', desc: 'Ogni minuto un round', color: '#FF9F0A',
+      name: 'EMOM', desc: 'Ogni minuto un round', color: '#FF9F0A', sec: 'train',
       def: { every: 60, rounds: 10 },
       fields: [
         { k: 'every', label: 'Ogni', kind: 'time', min: 10, max: 600 },
@@ -64,7 +68,7 @@
       total: (c) => c.every * c.rounds,
     },
     tabata: {
-      name: 'Tabata', desc: 'Lavoro e riposo', color: '#FF453A',
+      name: 'Tabata', desc: 'Lavoro e riposo', color: '#FF453A', sec: 'train',
       def: { work: 20, rest: 10, rounds: 8 },
       fields: [
         { k: 'work', label: 'Lavoro', kind: 'time', min: 5, max: 900 },
@@ -75,21 +79,21 @@
       total: (c) => c.work * c.rounds + c.rest * (c.rounds - 1),
     },
     amrap: {
-      name: 'AMRAP', desc: 'Più round possibili', color: '#FF375F',
+      name: 'AMRAP', desc: 'Più round possibili', color: '#FF375F', sec: 'train',
       def: { dur: 600 },
       fields: [{ k: 'dur', label: 'Durata', kind: 'time', min: 60, max: 5400, step: 60 }],
       summary: (c) => fmtShort(c.dur),
       total: (c) => c.dur,
     },
     fortime: {
-      name: 'For Time', desc: 'Più veloce possibile', color: '#7D7AFF',
+      name: 'For Time', desc: 'Più veloce possibile', color: '#7D7AFF', sec: 'train',
       def: { cap: 900 },
       fields: [{ k: 'cap', label: 'Tempo limite', kind: 'time', min: 0, max: 5400, step: 60, zero: 'nessuno' }],
       summary: (c) => (c.cap ? 'limite ' + fmtShort(c.cap) : 'senza limite'),
       total: (c) => c.cap,
     },
     boxe: {
-      name: 'Boxe', desc: 'Round con campanella', color: '#FFD60A',
+      name: 'Round', title: 'Timer a round', desc: 'Round e pausa con campanella', color: '#FFD60A', sec: 'martial',
       def: { round: 180, rest: 60, rounds: 12 },
       fields: [
         { k: 'round', label: 'Round', kind: 'time', min: 30, max: 600 },
@@ -100,14 +104,14 @@
       total: (c) => c.round * c.rounds + c.rest * (c.rounds - 1),
     },
     mix: {
-      name: 'MIX', desc: 'Blocchi in sequenza', color: '#32D7C6',
+      name: 'MIX', desc: 'Più timer in fila', color: '#32D7C6', sec: 'train', wide: true,
       def: { blocks: [{ t: 'emom', every: 60, rounds: 5 }, { t: 'rest', secs: 60 }, { t: 'tabata', work: 20, rest: 10, rounds: 8 }] },
       fields: [],
       summary: (c) => c.blocks.map((b) => BLOCK[b.t].name).join(' → '),
       total: (c) => c.blocks.reduce((a, b) => a + blockTotal(b), 0),
     },
     recupero: {
-      name: 'Recupero', desc: 'Tra una serie e l\'altra', color: '#0A84FF', hidden: true,
+      name: 'Riposo tra le serie', short: 'Riposo', desc: 'Con i pesi: suona quando riparte la serie', color: '#0A84FF', sec: 'train', hidden: true,
       def: { secs: 90 },
       fields: [{ k: 'secs', label: 'Altro', kind: 'time', min: 10, max: 900 }],
       summary: (c) => fmtShort(c.secs),
@@ -122,7 +126,7 @@
     rest: { name: 'Riposo', color: '#0A84FF', fields: [{ k: 'secs', label: 'Durata', kind: 'time', min: 5, max: 900 }], def: { secs: 60 } },
   };
   function blockTotal(b) { return b.t === 'rest' ? b.secs : TYPES[b.t].total(b); }
-  const label = (type, cfg) => type === 'mix' ? 'MIX ' + fmtShort(TYPES.mix.total(cfg)) : TYPES[type].name + ' ' + TYPES[type].summary(cfg);
+  const label = (type, cfg) => type === 'mix' ? 'MIX ' + fmtShort(TYPES.mix.total(cfg)) : (TYPES[type].short || TYPES[type].name) + ' ' + TYPES[type].summary(cfg);
 
   // Blocchi di tempo di un timer (senza la preparazione)
   function segsFor(type, c) {
@@ -350,6 +354,7 @@
       beep('tic');
     } else {
       data.last = { type, cfg: clone(cfg), name: run.name, savedId: run.savedId };
+      data.lastBy[TYPES[type].sec] = data.last;
     }
     persist();
     view = 'run';
@@ -415,32 +420,42 @@
     window.scrollTo(0, 0);
   }
 
+  const SECTIONS = [{ k: 'train', name: 'Allenamento' }, { k: 'martial', name: 'Arti marziali' }];
+
   function homeHTML() {
-    const l = data.last;
+    const sec = data.section;
+    const l = data.lastBy[sec];
     const repeat = l && TYPES[l.type] ? `
       <button class="repeat" data-act="repeat" style="--c:${TYPES[l.type].color}">
         <span class="play">▶</span>
         <span class="rtxt"><b>Ripeti</b><small>${esc(l.name)}</small></span>
       </button>` : '';
-    const mine = data.saved.length
-      ? `<div class="chips">${data.saved.filter((s) => TYPES[s.type]).map((s) => `
+    const savedHere = data.saved.filter((s) => TYPES[s.type] && TYPES[s.type].sec === sec);
+    const mine = savedHere.length
+      ? `<div class="chips">${savedHere.map((s) => `
           <button class="chip" data-act="openSaved" data-id="${esc(s.id)}" style="--c:${TYPES[s.type].color}">
-            <b>${esc(s.name)}</b><small>${esc(TYPES[s.type].name + ' · ' + (s.type === 'mix' ? fmtShort(TYPES.mix.total(s.cfg)) : TYPES[s.type].summary(s.cfg)))}</small>
+            <b>${esc(s.name)}</b><small>${esc((s.type === 'boxe' ? '' : TYPES[s.type].name + ' · ') + (s.type === 'mix' ? fmtShort(TYPES.mix.total(s.cfg)) : TYPES[s.type].summary(s.cfg)))}</small>
           </button>`).join('')}</div>`
-      : '<p class="hint">Imposta un timer e tocca ☆ per salvarlo qui.</p>';
-    const tiles = Object.entries(TYPES).filter(([, t]) => !t.hidden).map(([k, t]) => `
-      <button class="tile" data-act="new" data-type="${k}" style="--c:${t.color}">
-        <i></i><b>${t.name}</b><small>${t.desc}</small>
-      </button>`).join('');
+      : `<p class="hint">${sec === 'martial' ? 'Imposta il timer a round e tocca ☆ per salvarlo qui (es. «Sacco», «Sparring»).' : 'Imposta un timer e tocca ☆ per salvarlo qui.'}</p>`;
+    const tile = (k, t) => `
+      <button class="tile${t.wide || sec === 'martial' ? ' wide' : ''}" data-act="new" data-type="${k}" style="--c:${t.color}">
+        <i></i><span><b>${t.title || t.name}</b><small>${t.desc}</small></span>${t.wide || sec === 'martial' ? '<em>›</em>' : ''}
+      </button>`;
+    const list = Object.entries(TYPES).filter(([, t]) => t.sec === sec && !t.hidden);
+    const grid = list.filter(([, t]) => !t.wide).map(([k, t]) => tile(k, t)).join('');
+    const wides = list.filter(([, t]) => t.wide).map(([k, t]) => tile(k, t)).join('');
     const rec = TYPES.recupero;
-    return `
-      <header class="top"><h1>Sport</h1><button class="ver" id="ver">v${VERSION}</button></header>
-      ${repeat}
-      <h2>I miei</h2>${mine}
-      <h2>Nuovo</h2><div class="tiles">${tiles}</div>
+    const extra = sec === 'train' ? `
       <button class="tile wide" data-act="recupero" style="--c:${rec.color}">
         <i></i><span><b>${rec.name}</b><small>${rec.desc}</small></span><em>›</em>
-      </button>`;
+      </button>` : '';
+    const seg = SECTIONS.map((s) => `<button class="${s.k === sec ? 'on' : ''}" data-act="sec" data-s="${s.k}">${s.name}</button>`).join('');
+    return `
+      <header class="top"><h1>Sport</h1><button class="ver" id="ver">v${VERSION}</button></header>
+      <nav class="seg" role="tablist">${seg}</nav>
+      ${repeat}
+      <h2>I miei</h2>${mine}
+      <h2>Nuovo</h2><div class="tiles">${grid}${wides}${extra}</div>`;
   }
 
   function fieldDisp(f, v) { return f.kind === 'int' ? String(v) : f.zero && !v ? f.zero : fmt(v); }
@@ -458,7 +473,7 @@
     return `
       <header class="bar" style="--c:${t.color}">
         <button class="icon" data-act="home" aria-label="Indietro">‹</button>
-        <h1>${t.name}</h1>
+        <h1>${t.title || t.name}</h1>
         <button class="icon star${saved ? ' on' : ''}" data-act="star" aria-label="Salva">${saved ? '★' : '☆'}</button>
       </header>
       ${saved ? `<p class="sub">${esc(saved.name)}</p>` : `<p class="sub muted">${t.desc}</p>`}`;
@@ -509,9 +524,10 @@
     return `
       <header class="bar" style="--c:${t.color}">
         <button class="icon" data-act="home" aria-label="Indietro">‹</button>
-        <h1>Recupero</h1>
+        <h1>Riposo tra le serie</h1>
         <span class="icon"></span>
       </header>
+      <p class="sub muted">Finita una serie, tocca il tempo di riposo: suona quando devi ripartire.</p>
       <p class="sub">Serie fatte: <b class="num">${n}</b>${n ? ' · <button class="link" data-act="recReset">azzera</button>' : ''}</p>
       <div class="tiles">${quick}</div>
       <div class="fields" style="margin-top:10px">${fieldRow(t.fields[0], cur.cfg.secs)}</div>
@@ -634,7 +650,8 @@
       const s = data.saved.find((x) => x.id === b.dataset.id);
       if (s) { cur = { type: s.type, cfg: Object.assign(clone(TYPES[s.type].def), clone(s.cfg)), savedId: s.id }; view = 'config'; render(); }
     }
-    else if (a === 'repeat' && data.last) { const l = data.last; start(l.type, Object.assign(clone(TYPES[l.type].def), clone(l.cfg)), l.name, l.savedId); }
+    else if (a === 'repeat') { const l = data.lastBy[data.section]; if (l && TYPES[l.type]) start(l.type, Object.assign(clone(TYPES[l.type].def), clone(l.cfg)), l.name, l.savedId); }
+    else if (a === 'sec') { data.section = b.dataset.s; persist(); render(); }
     else if (a === 'go') {
       const s = cur.savedId && data.saved.find((x) => x.id === cur.savedId);
       start(cur.type, cur.cfg, s ? s.name : null, s ? s.id : null);
@@ -654,7 +671,7 @@
       openSheet(s ? s.name : label(cur.type, cur.cfg), !!s, (res, name) => {
         if (res === 'del') {
           data.saved = data.saved.filter((x) => x.id !== s.id);
-          if (data.last && data.last.savedId === s.id) data.last.savedId = null;
+          [data.last, data.lastBy.train, data.lastBy.martial].forEach((l) => { if (l && l.savedId === s.id) l.savedId = null; });
           cur.savedId = null;
         } else if (s) { s.name = name; s.cfg = clone(cur.cfg); }
         else { const id = uid(); data.saved.push({ id, name, type: cur.type, cfg: clone(cur.cfg) }); cur.savedId = id; }
@@ -667,6 +684,7 @@
         data.saved.push({ id, name, type: run.type, cfg: clone(run.cfg) });
         run.savedId = id; run.name = name;
         data.last = { type: run.type, cfg: clone(run.cfg), name, savedId: id };
+        data.lastBy[TYPES[run.type].sec] = data.last;
         persist(); render();
       });
     }
