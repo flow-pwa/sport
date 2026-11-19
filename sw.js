@@ -1,5 +1,5 @@
 /* Sport — service worker: tiene l'app nel telefono così funziona senza rete */
-const VERSION = '0.12.0';           // tenere uguale a VERSION in app.js
+const VERSION = '0.13.0';           // tenere uguale a VERSION in app.js
 const CACHE = 'sport-' + VERSION;
 const FILES = ['./', 'index.html', 'app.css', 'app.js', 'manifest.json', 'img/flow2-180.png', 'img/flow2-512.png'];
 
