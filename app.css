@@ -279,6 +279,16 @@ body.running .app { height: 100%; }
   text-shadow: 0 0 48px color-mix(in srgb, var(--accent) 50%, transparent);
 }
 .next { color: rgba(255,255,255,.6); font-size: 15px; min-height: 21px; text-align: center; }
+/* round grandi (Tabata, EMOM, Round): leggibili da lontano */
+.dial { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.rbig { position: relative; margin-top: 8px; display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; font-variant-numeric: tabular-nums; line-height: 1; }
+.rbig b { font-size: min(13vw, 7vh, 58px); font-weight: 800; color: #fff; letter-spacing: -.03em; }
+.rbig span { font-size: min(7vw, 4vh, 32px); font-weight: 700; color: rgba(255,255,255,.55); margin-left: 2px; }
+.rbig small { flex-basis: 100%; text-align: center; margin-top: 6px; font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-2); }
+.rdots { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: min(88vw, 380px); }
+.rdots i { width: 26px; height: 12px; border-radius: 6px; background: rgba(255,255,255,.1); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.18); }
+.rdots i.d { background: rgba(255,255,255,.5); box-shadow: none; }
+.rdots i.c { background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow: 0 0 10px var(--accent); }
 body.paused .time { opacity: .45; }
 body.pulse .time { animation: pulse .5s ease-out; }
 @keyframes pulse { 0% { transform: scale(1.1); } 100% { transform: scale(1); } }
@@ -476,3 +486,15 @@ body.dragmode { -webkit-user-select: none; user-select: none; }
 .bkcard small { color: var(--muted); font-size: 13px; line-height: 1.3; }
 .bkcard em { font-style: normal; font-size: 24px; color: var(--muted); }
 .dactions .bkcard { margin-bottom: 0; }
+
+/* Stretching: riga esercizio con il suo tempo (− 30″ +) */
+.srow2 .sthumb { flex: none; display: grid; place-items: center; }
+.smid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.sname { text-align: left; min-width: 0; }
+.sname b { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hstep { display: flex; align-items: center; gap: 4px; }
+.hstep button { width: 32px; height: 28px; border-radius: 9px; background: var(--surface-2); color: var(--text); font-size: 18px; line-height: 1; }
+.hstep button:active { background: color-mix(in srgb, var(--lilac) 40%, var(--surface-2)); }
+.hstep span { min-width: 42px; text-align: center; font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; color: var(--lilac-2); }
+.hstep small { margin-left: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.shint { margin: -2px 4px 0; color: var(--muted); font-size: 13px; line-height: 1.4; }

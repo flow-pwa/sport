@@ -1,7 +1,7 @@
 /* Flow (ex Sport) — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.10.1';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.11.0';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 6;                    // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -59,16 +59,6 @@
 
   /* ================= Tipi di timer ================= */
   const TYPES = {
-    emom: {
-      name: 'EMOM', desc: 'Ogni minuto un round', color: '#FF9F0A', sec: 'train',
-      def: { every: 60, rounds: 10 },
-      fields: [
-        { k: 'every', label: 'Ogni', kind: 'time', min: 10, max: 600 },
-        { k: 'rounds', label: 'Round', kind: 'int', min: 1, max: 99 },
-      ],
-      summary: (c) => fmtShort(c.every) + ' × ' + c.rounds,
-      total: (c) => c.every * c.rounds,
-    },
     tabata: {
       name: 'Tabata', desc: 'Lavoro e riposo', color: '#FF453A', sec: 'train',
       def: { work: 20, rest: 10, rounds: 8 },
@@ -80,8 +70,18 @@
       summary: (c) => fmtShort(c.work) + ' / ' + fmtShort(c.rest) + ' × ' + c.rounds,
       total: (c) => c.work * c.rounds + c.rest * (c.rounds - 1),
     },
+    emom: {
+      name: 'EMOM', desc: 'Ogni minuto un round', color: '#FF9F0A', sec: 'train',
+      def: { every: 60, rounds: 10 },
+      fields: [
+        { k: 'every', label: 'Ogni', kind: 'time', min: 10, max: 600 },
+        { k: 'rounds', label: 'Round', kind: 'int', min: 1, max: 99 },
+      ],
+      summary: (c) => fmtShort(c.every) + ' × ' + c.rounds,
+      total: (c) => c.every * c.rounds,
+    },
     amrap: {
-      name: 'AMRAP', desc: 'Più round possibili', color: '#FF375F', sec: 'train',
+      name: 'AMRAP', desc: 'Più round possibili', color: '#30D158', sec: 'train',
       def: { dur: 600 },
       fields: [{ k: 'dur', label: 'Durata', kind: 'time', min: 60, max: 5400, step: 60 }],
       summary: (c) => fmtShort(c.dur),
@@ -121,22 +121,25 @@
     },
     stretch: {
       name: 'Stretching', desc: 'Routine guidata', color: '#BF5AF2', sec: 'stretch', hidden: true,
-      def: { r: null, ids: [], hold: 30, dur: 600 },
-      fields: [{ k: 'hold', label: 'Ogni posizione', kind: 'time', min: 15, max: 120, step: 5 }],
-      summary: (c) => fitStretch(c).list.length + ' esercizi · ' + fmtShort(fitStretch(c).secs),
+      def: { r: null, ids: [], hs: [], hold: 30, sets: 1 },
+      fields: [
+        { k: 'hold', label: 'Tutti', kind: 'time', min: 10, max: 180, step: 5 },
+        { k: 'sets', label: 'Serie', kind: 'int', min: 1, max: 5 },
+      ],
+      summary: (c) => fitStretch(c).n + ' esercizi' + ((c.sets || 1) > 1 ? ' × ' + c.sets : '') + ' · ' + fmtShort(fitStretch(c).secs),
       total: (c) => fitStretch(c).secs,
     },
   };
   // Blocchi usabili dentro un MIX
   const BLOCK = {
-    emom: { name: 'EMOM', color: TYPES.emom.color, fields: TYPES.emom.fields, def: TYPES.emom.def },
     tabata: { name: 'Tabata', color: TYPES.tabata.color, fields: TYPES.tabata.fields, def: TYPES.tabata.def },
+    emom: { name: 'EMOM', color: TYPES.emom.color, fields: TYPES.emom.fields, def: TYPES.emom.def },
     amrap: { name: 'AMRAP', color: TYPES.amrap.color, fields: TYPES.amrap.fields, def: { dur: 300 } },
     rest: { name: 'Riposo', color: '#0A84FF', fields: [{ k: 'secs', label: 'Durata', kind: 'time', min: 5, max: 900 }], def: { secs: 60 } },
   };
   /* ================= Stretching: esercizi, figure, routine ================= */
   const LILAC = '#BF5AF2';
-  const GAP = 5, SWAP = 3;           // secondi per passare all'esercizio dopo / per cambiare lato
+  const GAP = 5, SWAP = 5;           // secondi per passare all'esercizio dopo / per cambiare lato
   const ZONES = { spalle: 'Spalle e collo', schiena: 'Schiena', anche: 'Anche', gambe: 'Gambe' };
   // Figura: punti in un riquadro 120×100, pavimento a y=92. Maiuscole = lato vicino, minuscole = lato lontano.
   // H testa · N spalle · P bacino · B curva della schiena · E/W gomito/mano · K/F ginocchio/piede
@@ -167,34 +170,52 @@
     polpaccio: { s0: 'H80,18 N78,29 P74,55 E86,34 W95,32 e85,36 w95,34 K76,74 F78,91 k70,74 f68,91', a: '24,78,27,90', n: 'Polpaccio al muro', z: 'gambe', side: 1, d: 1, wall: 96, hl: 'sh2', p: 'H78,25 N70,34 P54,56 E84,36 W95,32 e83,38 w95,34 K72,72 F78,91 k43,74 f32,91', how: 'Mani al muro, una gamba dietro tesa e tallone a terra. Spingi il bacino avanti.' },
     'affondo-laterale': { s0: 'H58,17 N58,28 P58,54 E52,41 W50,54 e64,41 w66,54 K48,73 F40,92 k68,73 f76,92', a: '44,54,44,66', n: 'Affondo laterale', z: 'gambe', side: 1, d: 0, hl: 'leg2', p: 'H58,27 N58,38 P56,64 E46,54 W36,68 e66,52 w62,64 K34,72 F32,92 k76,78 f92,92', how: 'Gambe larghe, piega un ginocchio e siediti di lato: l’altra gamba resta tesa.' },
     piegamento: { s0: 'H58,16 N57,27 P56,50 E58,40 W59,52 e56,40 w55,52 K57,71 F57,92 k55,71 f55,92', a: '88,64,88,80', n: 'Piegamento in avanti', z: 'gambe', d: 1, hl: 'leg1', p: 'H71,84 N73,75 B78,54 P56,50 E80,83 W81,91 e78,83 w79,91 K57,71 F57,92 k55,71 f55,92', how: 'In piedi, piegati in avanti e lascia pendere testa e braccia. Ginocchia morbide.' },
+    'braccia-alto': { s0: 'H60,17 N60,28 P60,54 E52,41 W50,54 e68,41 w70,54 K55,73 F54,92 k65,73 f66,92', a: '82,22,82,6', n: 'Braccia in alto', z: 'spalle', d: 0, hl: 'arm1 arm2', p: 'H60,18 N60,29 P60,54 E53,13 W58,-2 e67,13 w62,-2 K55,73 F54,92 k65,73 f66,92', how: 'Dita intrecciate, palmi verso il cielo: spingi le mani in alto e allunga i fianchi. Spalle lontane dalle orecchie.' },
+    cucciolo: { s0: 'H88,58 N76,63 B60,62 P44,68 E77,77 W77,90 e74,77 w74,90 K44,90 F24,90 k47,90 f27,90', a: '68,58,68,72', n: 'Cucciolo', z: 'spalle', d: 1, hl: 'arm1 arm2 N', p: 'H84,84 N74,80 B58,68 P44,62 E90,86 W106,88 e88,85 w104,87 K44,90 F24,90 k47,90 f27,90', how: 'A quattro zampe, cammina in avanti con le mani e lascia scendere il petto. Il bacino resta sopra le ginocchia.' },
+    'filo-ago': { s0: 'H88,58 N76,63 B60,62 P44,68 E77,77 W77,90 e74,77 w74,90 K44,90 F24,90 k47,90 f27,90', a: '74,66,64,72,58,84', n: 'Filo nell’ago', z: 'spalle', side: 1, d: 1, hl: 'arm1 N', p: 'H82,84 N72,80 B58,70 P44,66 E62,88 W46,89 e84,74 w88,90 K44,90 F24,90 k47,90 f27,90', how: 'A quattro zampe, passa un braccio sotto il corpo e appoggia spalla e tempia a terra. L’altra mano spinge.' },
+    sfinge: { s0: 'H86,82 N78,86 P54,88 E70,80 W76,90 e68,80 w74,90 K36,90 F18,90 k37,89 f19,89', a: '92,80,92,66', n: 'Sfinge', z: 'schiena', d: 1, hl: 'back', p: 'H86,60 N78,70 B68,84 P54,88 E77,89 W94,89 e75,89 w92,89 K36,90 F18,90 k37,89 f19,89', how: 'Pancia a terra, avambracci sotto le spalle: solleva il petto e allunga la schiena. Più dolce del cobra.' },
+    'torsione-seduto': { s0: 'H32,49 N32,60 P30,86 E36,74 W40,86 e34,74 w38,86 K48,70 F44,89 k56,89 f84,89', a: '14,52,22,38,40,42', n: 'Torsione da seduto', z: 'schiena', side: 1, d: 1, hl: 'back', p: 'H34,49 N32,60 P30,86 E22,74 W16,88 e44,66 w52,62 K48,70 F44,89 k56,89 f84,89', how: 'Seduto, un piede accanto all’altro ginocchio: ruota il busto verso la gamba piegata, una mano a terra dietro.' },
+    'squadra-muro': { s0: 'H72,17 N72,28 P70,54 E85,30 W99,30 e83,31 w99,31 K70,73 F70,92 k68,73 f68,92', a: '40,40,26,40', n: 'Squadra al muro', z: 'schiena', d: 1, wall: 100, hl: 'back ua1 ua2', p: 'H86,48 N76,52 P48,52 E88,50 W99,48 e87,52 w99,50 K50,72 F50,92 k48,72 f48,92', how: 'Mani al muro all’altezza dei fianchi, cammina indietro finché la schiena è piatta. Spingi il bacino indietro.' },
+    lucertola: { s0: 'H55,29 N54,40 P52,66 E66,54 W78,66 e64,55 w76,67 K80,70 F82,90 k42,88 f24,90', a: '58,56,58,68', n: 'Lucertola', z: 'anche', side: 1, d: 1, hl: 'th2 P', p: 'H84,74 N74,78 B64,76 P54,74 E70,89 W82,89 e68,89 w80,89 K88,70 F94,90 k40,88 f22,90', how: 'Affondo basso, mani o avambracci a terra dentro il piede davanti. Lascia scendere il bacino verso terra.' },
+    'gambe-larghe': { s0: 'H60,46 N60,57 P60,84 E53,71 W51,84 e67,71 w69,84 K40,86 F20,89 k80,86 f100,89', a: '60,34,60,46', n: 'Gambe larghe', z: 'anche', d: 0, hl: 'th1 th2', p: 'H60,56 N60,65 P60,84 E50,74 W42,86 e70,74 w78,86 K38,86 F16,89 k82,86 f104,89', how: 'Seduto, gambe larghe e tese: porta il busto in avanti con la schiena lunga, mani a terra davanti.' },
+    'figura4-piedi': { s0: 'H58,16 N57,27 P56,50 E58,40 W59,52 e56,40 w55,52 K57,71 F57,92 k55,71 f55,92', a: '36,42,30,54', n: 'Figura 4 in piedi', z: 'anche', side: 1, d: 1, hl: 'th1 P', p: 'H76,26 N68,34 P48,60 E80,46 W92,48 e78,47 w90,49 K70,64 F56,70 k62,74 f56,92', how: 'In piedi, caviglia sul ginocchio opposto: siediti indietro come su una sedia, busto in avanti. Tieniti a un appoggio se serve.' },
+    'femorali-piedi': { s0: 'H58,16 N57,27 P56,50 E58,40 W59,52 e56,40 w55,52 K57,71 F57,92 k55,71 f55,92', a: '86,34,92,48', n: 'Femorale in piedi', z: 'gambe', side: 1, d: 1, hl: 'leg1', p: 'H82,32 N74,38 P46,54 E74,52 W76,64 e72,53 w74,65 K68,72 F88,91 k52,72 f50,92', how: 'Un piede avanti col tallone a terra e la punta su, l’altro ginocchio piegato: porta il bacino indietro, schiena dritta.' },
+    'quadricipite-fianco': { s0: 'H16,80 N26,83 P54,84 E22,88 W12,84 e40,82 w52,82 K76,86 F96,88 k76,87 f96,89', a: '74,64,66,58,60,62', n: 'Quadricipite sul fianco', z: 'gambe', side: 1, d: 0, hl: 'th1', p: 'H16,80 N26,83 P54,84 E22,88 W12,84 e40,78 w58,70 K74,82 F60,70 k76,87 f96,89', how: 'Sdraiato su un fianco, prendi la caviglia di sopra e porta il tallone al gluteo. Ginocchia vicine.' },
+    tibiale: { s0: 'H40,47 N40,58 P40,80 E44,70 W50,80 e42,70 w48,80 K62,90 F38,90 k64,90 f40,90', a: '70,84,74,74', n: 'Tibiale', z: 'gambe', d: 1, hl: 'sh1 sh2', p: 'H32,44 N34,55 B36,68 P40,78 E28,72 W22,90 e30,72 w24,90 K62,86 F38,90 k64,87 f40,90', how: 'Seduto sui talloni, mani a terra dietro: appoggiati indietro e, se vuoi, solleva un po’ le ginocchia.' },
   };
   const ROUTINES = {
     mattina: { name: 'Mattina', g: 'm', desc: 'Sveglia il corpo', ids: ['gatto', 'cane', 'laterale', 'affondo-flessori', 'piegamento', 'spalla-incrociata', 'collo-lato', 'quadricipite', 'cobra', 'torsione'] },
     sera: { name: 'Sera', g: 'm', desc: 'Lento, per dormire', ids: ['bambino', 'ginocchia-petto', 'torsione', 'figura4', 'femorali-supino', 'farfalla', 'collo-lato', 'cobra', 'piccione', 'mento-petto'] },
     allenamento: { name: 'Dopo allenamento', g: 'm', desc: 'Gambe, anche, spalle', ids: ['quadricipite', 'femorali-supino', 'affondo-flessori', 'figura4', 'polpaccio', 'petto-muro', 'tricipite', 'bambino', 'farfalla', 'affondo-laterale', 'spalla-incrociata'] },
     boxe: { name: 'Dopo boxe', g: 'm', desc: 'Spalle, polsi, collo', ids: ['spalla-incrociata', 'petto-muro', 'avambracci', 'tricipite', 'collo-lato', 'braccia-dietro', 'torsione', 'affondo-flessori', 'polpaccio', 'bambino', 'quadricipite'] },
-    schiena: { name: 'Schiena', g: 'z', desc: 'Dalla nuca al bacino', ids: ['gatto', 'bambino', 'cobra', 'torsione', 'ginocchia-petto', 'laterale', 'cane', 'piegamento'] },
-    anche: { name: 'Anche', g: 'z', desc: 'Flessori e glutei', ids: ['affondo-flessori', 'figura4', 'farfalla', 'piccione', 'squat', 'affondo-laterale', 'ginocchia-petto'] },
-    gambe: { name: 'Gambe', g: 'z', desc: 'Femorali e polpacci', ids: ['femorali-seduto', 'femorali-supino', 'quadricipite', 'polpaccio', 'affondo-laterale', 'piegamento', 'cane', 'affondo-flessori'] },
-    spalle: { name: 'Spalle e collo', g: 'z', desc: 'Per chi tira pugni', ids: ['collo-lato', 'mento-petto', 'spalla-incrociata', 'tricipite', 'petto-muro', 'braccia-dietro', 'avambracci', 'laterale'] },
+    schiena: { name: 'Schiena', g: 'z', desc: 'Dalla nuca al bacino', ids: ['gatto', 'bambino', 'cobra', 'torsione', 'ginocchia-petto', 'laterale', 'cane', 'piegamento', 'sfinge'] },
+    anche: { name: 'Anche', g: 'z', desc: 'Flessori e glutei', ids: ['affondo-flessori', 'figura4', 'farfalla', 'piccione', 'squat', 'affondo-laterale', 'ginocchia-petto', 'lucertola', 'figura4-piedi'] },
+    gambe: { name: 'Gambe', g: 'z', desc: 'Femorali e polpacci', ids: ['femorali-seduto', 'femorali-supino', 'quadricipite', 'polpaccio', 'affondo-laterale', 'piegamento', 'cane', 'affondo-flessori', 'femorali-piedi'] },
+    spalle: { name: 'Spalle e collo', g: 'z', desc: 'Per chi tira pugni', ids: ['collo-lato', 'mento-petto', 'spalla-incrociata', 'tricipite', 'petto-muro', 'braccia-dietro', 'avambracci', 'laterale', 'cucciolo'] },
   };
-  const exCost = (id, hold) => (EX[id].side ? 2 * hold + SWAP : hold);
-  // Sceglie gli esercizi per stare nella durata: in ordine; se avanza tanto tempo, ricomincia da capo
-  function fitStretch(c) {
-    const ids = (c.ids || []).filter((id) => EX[id]);
-    const out = []; let t = 0;
-    if (!ids.length) return { list: out, secs: 0 };
-    for (let pass = 0; pass < 4; pass++) {
-      if (pass > 0 && (!c.dur || t >= c.dur * 0.75)) break;
-      for (const id of ids) {
-        const cost = exCost(id, c.hold) + (out.length ? GAP : 0);
-        if (c.dur && out.length && t + cost > c.dur + 20) return { list: out, secs: t };
-        out.push(id); t += cost;
-      }
-    }
-    return { list: out, secs: t };
+  const HMIN = 10, HMAX_S = 180;     // limiti del tempo di una posizione
+  // Tempo di ogni esercizio (hs, stesso ordine di ids); i dati vecchi avevano una durata fissa (dur): si ignora
+  function normStretch(c) {
+    c.ids = (c.ids || []).slice();
+    c.hold = c.hold || 30;
+    c.hs = c.ids.map((_, i) => Math.min(HMAX_S, Math.max(HMIN, (c.hs && c.hs[i]) || c.hold)));
+    c.sets = Math.min(5, Math.max(1, c.sets || 1));
+    delete c.dur;
+    return c;
   }
-  const stretchName = (c) => (c.r && ROUTINES[c.r] ? ROUTINES[c.r].name : 'Stretching') + (c.dur ? ' ' + fmtShort(c.dur) : '');
+  // La routine dura quanto i suoi esercizi, ripetuti per il numero di serie
+  function fitStretch(c) {
+    const ids = c.ids || [], sets = Math.max(1, c.sets || 1);
+    const list = []; let t = 0;
+    for (let set = 1; set <= sets; set++) ids.forEach((id, i) => {
+      if (!EX[id]) return;
+      const h = (c.hs && c.hs[i]) || c.hold || 30;
+      t += (list.length ? GAP : 0) + (EX[id].side ? 2 * h + SWAP : h);
+      list.push({ id, h, set });
+    });
+    return { list, secs: t, n: ids.filter((id) => EX[id]).length };
+  }
+  const stretchName = (c) => (c.r && ROUTINES[c.r] ? ROUTINES[c.r].name : 'Stretching') + ((c.sets || 1) > 1 ? ' × ' + c.sets : '');
 
   // Disegno a linea dell'esercizio (stesso stile per tutti)
   // stile «corpo pieno»: arti spessi, testa piena; in grigio scuro la posizione di partenza (s0)
@@ -275,15 +296,15 @@
     } else if (type === 'recupero') {
       seg.push({ kind: 'rest', secs: c.secs, label: 'Recupero' });
     } else if (type === 'stretch') {
-      const list = fitStretch(c).list, of = list.length;
-      list.forEach((id, k) => {
-        const base = { ex: id, k: k + 1, of, quiet: true };
-        if (k > 0) seg.push(Object.assign({ kind: 'rest', secs: GAP, label: 'Prossimo' }, base));
+      const fit = fitStretch(c), of = fit.n, sets = Math.max(1, c.sets || 1);
+      fit.list.forEach((x, k) => {
+        const id = x.id, base = { ex: id, k: (k % of) + 1, of, set: x.set, sets, quiet: true };
+        if (k > 0) seg.push(Object.assign({ kind: 'rest', secs: GAP, label: k % of ? 'Prossimo' : 'Serie ' + x.set }, base));
         if (EX[id].side) {
-          seg.push(Object.assign({ kind: 'work', secs: c.hold, label: 'Tieni', sideTxt: 'lato destro' }, base));
+          seg.push(Object.assign({ kind: 'work', secs: x.h, label: 'Tieni', sideTxt: 'lato destro' }, base));
           seg.push(Object.assign({ kind: 'rest', secs: SWAP, label: 'Cambia lato', swap: true, sideTxt: 'ora il sinistro' }, base));
-          seg.push(Object.assign({ kind: 'work', secs: c.hold, label: 'Tieni', sideTxt: 'lato sinistro' }, base));
-        } else seg.push(Object.assign({ kind: 'work', secs: c.hold, label: 'Tieni' }, base));
+          seg.push(Object.assign({ kind: 'work', secs: x.h, label: 'Tieni', sideTxt: 'lato sinistro' }, base));
+        } else seg.push(Object.assign({ kind: 'work', secs: x.h, label: 'Tieni' }, base));
       });
     } else if (type === 'mix') {
       c.blocks.forEach((b, bi) => segsFor(b.t, b).forEach((s) => { s.b = bi; s.bt = b.t; seg.push(s); }));
@@ -452,8 +473,8 @@
       pulse(true);
     });
     const boxRound = s.bell && s.kind === 'work';
-    // stretching: 3-2-1 solo prima di una posizione, non alla fine
-    if (finite && s.secs >= 4 && !boxRound && !(st && s.kind === 'work')) for (const n of [3, 2, 1]) cue(i + ':' + n, n, left, () => { beep('short'); pulse(false); });
+    // 3-2-1 alla fine di ogni blocco (stretching compreso: fine posizione, cambio lato, prossimo)
+    if (finite && s.secs >= 4 && !boxRound) for (const n of [3, 2, 1]) cue(i + ':' + n, n, left, () => { beep('short'); pulse(false); });
     if (finite && s.kind === 'work' && s.secs >= 30 && !s.quiet) {
       if (!s.bell) cue(i + ':h', s.secs / 2, left, () => beep('half'));
       cue(i + ':10', 10, left, () => beeps('tic', 2, 140));
@@ -473,7 +494,8 @@
     if (st) return stretchTick(i, s, frac);
 
     let rr = '';
-    if (s.round) rr = 'Round ' + s.round + '/' + s.of;
+    showRounds(s);
+    if (s.round) rr = '';
     else if (isAmrap(s) || (run.type === 'amrap')) rr = run.rounds + ' round';
     else if (run.type === 'recupero') rr = 'Serie ' + data.rec.n;
     $('rRound').textContent = rr;
@@ -497,6 +519,21 @@
     if (!run.paused) run.raf = requestAnimationFrame(tick);
   }
 
+  // Round grandi: numero dentro l'anello e una tacca per round (fatti pieni, quello in corso acceso)
+  function showRounds(s) {
+    const big = $('rbig'), dots = $('rdots');
+    if (!big) return;
+    const key = s.round ? s.round + '/' + s.of + s.kind : '';
+    if (run.roundKey === key) return;
+    run.roundKey = key;
+    big.hidden = dots.hidden = !s.round;
+    if (!s.round) return;
+    const left = s.of - s.round;
+    big.innerHTML = `<b>${s.round}</b><span>/${s.of}</span><small>${left ? (left === 1 ? 'manca 1 round' : 'mancano ' + left + ' round') : 'ultimo round'}</small>`;
+    dots.hidden = s.of > 30;
+    if (s.of <= 30) dots.innerHTML = Array.from({ length: s.of }, (_, k) => `<i class="${k + 1 < s.round || (k + 1 === s.round && s.kind === 'rest') ? 'd' : k + 1 === s.round ? 'c' : ''}"></i>`).join('');
+  }
+
   // Schermo dello stretching: figura, nome, lato, barra, cosa viene dopo
   function stretchTick(i, s, frac) {
     const seg = run.seg;
@@ -509,7 +546,7 @@
     }
     $('exside').textContent = (s.swap ? s.sideTxt : w.sideTxt) || '';
     $('fig').classList.toggle('flip', w.sideTxt === 'lato sinistro');   // lato sinistro = figura a specchio
-    $('rRound').textContent = w.k + '/' + w.of;
+    $('rRound').textContent = w.k + '/' + w.of + (w.sets > 1 ? ' · serie ' + w.set + '/' + w.sets : '');
     $('bar').style.transform = 'scaleX(' + Math.max(0, Math.min(1, frac)).toFixed(4) + ')';
     const nx = seg[i + 1];
     let nxt;
@@ -540,6 +577,7 @@
 
   function start(type, cfg, name, savedId) {
     unlockAudio();
+    if (type === 'stretch') cfg = normStretch(clone(cfg));
     run = {
       type, cfg: clone(cfg), name: name || label(type, cfg), savedId: savedId || null,
       seg: timeline(type, cfg), start: Date.now(), paused: false, pausedAt: 0,
@@ -740,28 +778,37 @@
 
   function stretchListHTML() {
     const c = cur.cfg, fit = fitStretch(c);
-    const inFit = fit.list.length;
     const rows = c.ids.map((id, i) => {
       const e = EX[id];
       if (!e) return '';
-      const out = c.dur && i >= inFit;
-      return `<div class="srow2${out ? ' out' : ''}">
-          <button class="sex" data-act="exinfo" data-id="${id}">${figSVG(id, 'thumb')}<span><b>${e.n}</b><small>${e.side ? '⇄ due lati · ' + fmtShort(c.hold) + ' + ' + fmtShort(c.hold) : fmtShort(c.hold)}${out ? ' · non entra' : ''}</small></span></button>
+      return `<div class="srow2">
+          <button class="sthumb" data-act="exinfo" data-id="${id}" aria-label="Come si fa">${figSVG(id, 'thumb')}</button>
+          <div class="smid">
+            <button class="sname" data-act="exinfo" data-id="${id}"><b>${e.n}</b></button>
+            <div class="hstep">
+              <button data-act="hstep" data-i="${i}" data-d="-1" aria-label="Meno tempo">−</button>
+              <span id="hv${i}">${fmtShort(c.hs[i])}</span>
+              <button data-act="hstep" data-i="${i}" data-d="1" aria-label="Più tempo">+</button>
+              ${e.side ? '<small>⇄ per lato</small>' : ''}
+            </div>
+          </div>
           <button class="mini" data-act="sdel" data-i="${i}" aria-label="Togli">✕</button>
           <span class="drag" aria-label="Trascina per spostare"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14M5 12h14M5 16h14"/></svg></span>
         </div>`;
     }).join('');
-    const again = fit.list.length > c.ids.length ? ' · ripete da capo' : '';
     return `${rows || '<p class="hint">Aggiungi gli esercizi dalla lista.</p>'}
       <button class="addb" data-act="sadd" style="--c:${LILAC};width:100%;margin-top:4px">+ Aggiungi esercizio</button>
-      <p class="total">Totale <b id="total">${fit.secs ? fmt(fit.secs) : '—'}</b><span class="muted"> · ${fit.list.length} ${fit.list.length === 1 ? 'esercizio' : 'esercizi'}${again}</span></p>`;
+      ${stretchTotalHTML()}`;
+  }
+  function stretchTotalHTML() {
+    const c = cur.cfg, fit = fitStretch(c);
+    return `<p class="total" id="stot">Totale <b id="total">${fit.secs ? fmt(fit.secs) : '—'}</b><span class="muted"> · ${fit.n} ${fit.n === 1 ? 'esercizio' : 'esercizi'}${c.sets > 1 ? ' × ' + c.sets + ' serie' : ''}</span></p>`;
   }
 
   function stretchCfgHTML() {
     const t = TYPES.stretch, c = cur.cfg;
     const saved = cur.savedId && data.saved.find((x) => x.id === cur.savedId);
     const title = saved ? saved.name : c.r && ROUTINES[c.r] ? ROUTINES[c.r].name : 'Nuova routine';
-    const durs = [[300, '5′'], [600, '10′'], [900, '15′'], [0, 'Tutta']];
     return `
       <header class="bar" style="--c:${LILAC}">
         <button class="icon" data-act="home" aria-label="Indietro">‹</button>
@@ -769,8 +816,8 @@
         <span class="icon"></span>
       </header>
       <p class="sub muted">${c.r && ROUTINES[c.r] && !saved ? ROUTINES[c.r].desc : 'Routine tua'}</p>
-      <div class="seg">${durs.map(([v, txt]) => `<button class="${c.dur === v ? 'on' : ''}" data-act="sdur" data-v="${v}">${txt}</button>`).join('')}</div>
-      <div class="fields">${fieldRow(t.fields[0], c.hold)}</div>
+      <div class="fields">${fieldRow(t.fields[0], c.hold)}${fieldRow(t.fields[1], c.sets)}</div>
+      <p class="shint">«Tutti» cambia il tempo di ogni esercizio; con − e + nella lista lo cambi uno per uno.</p>
       <h2>Esercizi</h2>
       <div class="slist" id="slist">${stretchListHTML()}</div>
       ${saveRow(t, saved)}
@@ -1110,7 +1157,9 @@
             <circle class="prog" id="prog" cx="100" cy="100" r="92"/>
           </svg>
           <div class="time" id="time"></div>
+          <div class="rbig" id="rbig" hidden></div>
         </div>
+        <div class="rdots" id="rdots" hidden></div>
         <div class="next" id="next"></div>
       </section>
       <div class="ractions" style="--c:${t.color}">
@@ -1127,7 +1176,7 @@
     if (run.rounds) bits.push(run.rounds + ' round');
     if (run.cfg.rounds) bits.push(r.completed ? run.cfg.rounds + ' round' : 'round ' + run.reached + '/' + run.cfg.rounds);
     if (run.type === 'mix') bits.push(run.cfg.blocks.length + ' blocchi');
-    if (run.type === 'stretch') bits.push(fitStretch(run.cfg).list.length + ' esercizi');
+    if (run.type === 'stretch') bits.push(fitStretch(run.cfg).n + ' esercizi' + ((run.cfg.sets || 1) > 1 ? ' × ' + run.cfg.sets + ' serie' : ''));
     const sk = run.type === 'stretch' && r.completed ? streak('stretch') : 0;
     return `
       <section class="donebox">
@@ -1195,7 +1244,7 @@
     const f = ctx.fields.find((x) => x.k === k);
     v = Math.round(Math.min(f.max, Math.max(f.min, v)));
     ctx.obj[k] = v;
-    if (cur.type === 'stretch' && k === 'hold') { data.sHold = v; persist(); }
+    if (cur.type === 'stretch' && k === 'hold') { data.sHold = v; persist(); cur.cfg.hs = cur.cfg.ids.map(() => v); }
     const sel = '.val[data-k="' + k + '"]' + (ctx.b === null ? ':not([data-b])' : '[data-b="' + ctx.b + '"]');
     const inp = root.querySelector(sel);
     if (inp) inp.value = fieldDisp(f, v);
@@ -1218,7 +1267,7 @@
     else if (a === 'new') { cur = { type: b.dataset.type, cfg: clone(TYPES[b.dataset.type].def), savedId: null, name: '' }; view = 'config'; render(); }
     else if (a === 'openSaved') {
       const s = data.saved.find((x) => x.id === b.dataset.id);
-      if (s) { cur = { type: s.type, cfg: Object.assign(clone(TYPES[s.type].def), clone(s.cfg)), savedId: s.id, name: s.name }; view = 'config'; render(); }
+      if (s) { cur = { type: s.type, cfg: Object.assign(clone(TYPES[s.type].def), clone(s.cfg)), savedId: s.id, name: s.name }; if (s.type === 'stretch') normStretch(cur.cfg); view = 'config'; render(); }
     }
     else if (a === 'repeat') {
       const l = data.lastBy[data.section];
@@ -1226,21 +1275,20 @@
     }
     else if (a === 'sec') { data.section = b.dataset.s; persist(); render(); }
     else if (a === 'sound') openSound();
-    else if (a === 'routine') { const r = ROUTINES[b.dataset.r]; cur = { type: 'stretch', cfg: { r: b.dataset.r, ids: r.ids.slice(), hold: data.sHold || 30, dur: data.sDur === undefined ? 600 : data.sDur }, savedId: null, name: '' }; view = 'config'; render(); }
-    else if (a === 'snew') { cur = { type: 'stretch', cfg: { r: null, ids: [], hold: data.sHold || 30, dur: 0 }, savedId: null, name: '' }; view = 'config'; render(); }
+    else if (a === 'routine') { const r = ROUTINES[b.dataset.r]; cur = { type: 'stretch', cfg: normStretch({ r: b.dataset.r, ids: r.ids.slice(), hold: data.sHold || 30, sets: 1 }), savedId: null, name: '' }; view = 'config'; render(); }
+    else if (a === 'snew') { cur = { type: 'stretch', cfg: normStretch({ r: null, ids: [], hold: data.sHold || 30, sets: 1 }), savedId: null, name: '' }; view = 'config'; render(); }
     else if (a === 'lib') { libZone.z = 'all'; view = 'lib'; render(); }
     else if (a === 'exinfo') openExInfo(b.dataset.id);
     else if (a === 'zone') { libZone.z = b.dataset.z; render(); }
     else if (a === 'sadd') { view = 'pick'; render(); }
     else if (a === 'pickBack') { view = 'config'; render(); }
-    else if (a === 'spick') { cur.cfg.ids.push(b.dataset.id); view = 'config'; render(); const l = $('slist'); if (l) l.lastElementChild.scrollIntoView({ block: 'center' }); }
-    else if (a === 'sdel') { cur.cfg.ids.splice(+b.dataset.i, 1); refreshTotals(); }
-    else if (a === 'sup') { const i = +b.dataset.i, x = cur.cfg.ids; [x[i - 1], x[i]] = [x[i], x[i - 1]]; refreshTotals(); }
-    else if (a === 'sdur') {
-      cur.cfg.dur = +b.dataset.v;
-      if (cur.cfg.r && !cur.savedId) { data.sDur = cur.cfg.dur; persist(); }
-      root.querySelectorAll('.seg button').forEach((x) => x.classList.toggle('on', x === b));
-      refreshTotals();
+    else if (a === 'spick') { cur.cfg.ids.push(b.dataset.id); cur.cfg.hs.push(cur.cfg.hold); view = 'config'; render(); const l = $('slist'); if (l) l.lastElementChild.scrollIntoView({ block: 'center' }); }
+    else if (a === 'sdel') { cur.cfg.ids.splice(+b.dataset.i, 1); cur.cfg.hs.splice(+b.dataset.i, 1); refreshTotals(); }
+    else if (a === 'hstep') {   // tempo di un solo esercizio: aggiorna solo la riga e il totale
+      const i = +b.dataset.i, hs = cur.cfg.hs;
+      hs[i] = Math.min(HMAX_S, Math.max(HMIN, hs[i] + 5 * +b.dataset.d));
+      const v = $('hv' + i); if (v) v.textContent = fmtShort(hs[i]);
+      const tot = $('stot'); if (tot) tot.outerHTML = stretchTotalHTML();
     }
     else if (a === 'go') {
       const s = cur.savedId && data.saved.find((x) => x.id === cur.savedId);
@@ -1333,7 +1381,7 @@
       cancelAnimationFrame(raf);
       h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up);
       body.classList.remove('dragmode');
-      if (to !== from) { const [x] = cur.cfg.ids.splice(from, 1); cur.cfg.ids.splice(to, 0, x); }
+      if (to !== from) { const [x] = cur.cfg.ids.splice(from, 1); cur.cfg.ids.splice(to, 0, x); const [h] = cur.cfg.hs.splice(from, 1); cur.cfg.hs.splice(to, 0, h); }
       refreshTotals();
     };
     h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
