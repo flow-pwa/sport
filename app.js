@@ -1,7 +1,7 @@
 /* Sport — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.5.2';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.6.0';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 10;                   // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -20,7 +20,8 @@
     d.history = Array.isArray(d.history) ? d.history : [];
     d.last = d.last || null;
     d.rec = d.rec || { n: 0, at: 0, secs: 90 };
-    d.section = d.section === 'martial' ? 'martial' : 'train';
+    d.section = ['train', 'martial', 'diary'].includes(d.section) ? d.section : 'train';
+    d.backupAt = d.backupAt || 0;
     d.lastBy = d.lastBy || {};
     return d;
   })();
@@ -412,12 +413,13 @@
 
   function render() {
     body.className = '';
-    if (view === 'home') { body.className = 'has-tabs'; root.innerHTML = homeHTML(); }
+    if (view === 'home') { body.className = 'has-tabs'; root.innerHTML = data.section === 'diary' ? diaryHTML() : homeHTML(); }
     else if (view === 'config') root.innerHTML = cur.type === 'mix' ? mixHTML() : configHTML();
     else if (view === 'recupero') root.innerHTML = recHTML();
     else if (view === 'run') { body.className = 'running'; root.innerHTML = runHTML(); bindRun(); }
     else if (view === 'done') { body.className = run.result.completed ? 'done' : 'stopped'; root.innerHTML = doneHTML(); }
     $('tabbar').hidden = view !== 'home';
+    if (view === 'home') $('tabbar').innerHTML = SECTIONS.map((s) => `<button class="${s.k === data.section ? 'on' : ''}" data-act="sec" data-s="${s.k}" role="tab" aria-selected="${s.k === data.section}">${ICONS[s.k]}<span>${s.name}</span></button>`).join('');
     window.scrollTo(0, 0);
   }
 
@@ -426,7 +428,8 @@
     train: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.6 2.2M9.5 2.5h5M12 2.5v3.5M18.6 6.4l1.4-1.4"/></svg>',
     martial: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 11V7.5A4.5 4.5 0 0 1 12.5 3H14a4.5 4.5 0 0 1 4.5 4.5V13a5.5 5.5 0 0 1-5.5 5.5h-1.5A4.5 4.5 0 0 1 7 14v-.5"/><path d="M8 11a2.2 2.2 0 0 0-2.2 2.2v.1A2.2 2.2 0 0 0 8 15.5h3"/><path d="M8.5 18.5V21h8v-2.5M12 7.5h4"/></svg>',
   };
-  const SECTIONS = [{ k: 'train', name: 'Allenamento' }, { k: 'martial', name: 'Arti marziali' }];
+  ICONS.diary = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="8.5" cy="14.5" r="1"/><circle cx="12" cy="14.5" r="1"/></svg>';
+  const SECTIONS = [{ k: 'train', name: 'Allenamento' }, { k: 'martial', name: 'Arti marziali' }, { k: 'diary', name: 'Diario' }];
   function lastName(l) {
     const s = l.savedId && data.saved.find((x) => x.id === l.savedId);
     return s ? s.name : l.custom ? l.name : label(l.type, Object.assign(clone(TYPES[l.type].def), l.cfg));
@@ -459,13 +462,156 @@
       <button class="tile wide" data-act="recupero" style="--c:${rec.color}">
         <i></i><span><b>${rec.name}</b><small>${rec.desc}</small></span><em>›</em>
       </button>` : '';
-    $('tabbar').innerHTML = SECTIONS.map((s) => `<button class="${s.k === sec ? 'on' : ''}" data-act="sec" data-s="${s.k}" role="tab" aria-selected="${s.k === sec}">${ICONS[s.k]}<span>${s.name}</span></button>`).join('');
     return `
       <header class="top"><h1>Sport</h1><button class="ver" id="ver">v${VERSION}</button></header>
       <p class="secname">${SECTIONS.find((s) => s.k === sec).name}</p>
       ${repeat}
       <h2>I miei</h2>${mine}
       <h2>Nuovo</h2><div class="tiles">${grid}${wides}${extra}</div>`;
+  }
+
+  /* ================= Diario ================= */
+  const SEC_COLOR = { train: '#FF453A', martial: '#FFD60A' };
+  const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+  const GIORNI = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
+  const dkey = (ts) => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const secOf = (h) => (TYPES[h.type] && TYPES[h.type].sec) || 'train';
+  const diary = { y: new Date().getFullYear(), m: new Date().getMonth(), day: null };
+  const sessions = () => data.history.filter((h) => h.secs >= 30);   // sotto i 30 s non conta
+
+  function streak() {
+    const days = new Set(sessions().map((h) => dkey(h.at)));
+    const d = new Date(); d.setHours(12, 0, 0, 0);
+    if (!days.has(dkey(d.getTime()))) d.setDate(d.getDate() - 1);   // oggi non ancora: conta da ieri
+    let n = 0;
+    while (days.has(dkey(d.getTime()))) { n++; d.setDate(d.getDate() - 1); }
+    return n;
+  }
+  function weekStart() { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); }
+  function durTxt(s) { const m = Math.round(s / 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 ? m % 60 + ' min' : ''); }
+
+  function diaryHTML() {
+    const all = sessions();
+    const ws = weekStart();
+    const week = all.filter((h) => h.at >= ws);
+    const weekMin = Math.round(week.reduce((a, h) => a + h.secs, 0) / 60);
+    // calendario del mese
+    const byDay = {};
+    all.forEach((h) => { const k = dkey(h.at); (byDay[k] = byDay[k] || new Set()).add(secOf(h)); });
+    const first = (new Date(diary.y, diary.m, 1).getDay() + 6) % 7;
+    const nDays = new Date(diary.y, diary.m + 1, 0).getDate();
+    const today = dkey(Date.now());
+    let cells = '';
+    for (let i = 0; i < first; i++) cells += '<span class="day empty"></span>';
+    for (let d = 1; d <= nDays; d++) {
+      const k = diary.y + '-' + String(diary.m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      const s = byDay[k];
+      const bg = s ? (s.size > 1 ? `linear-gradient(90deg, ${SEC_COLOR.train} 50%, ${SEC_COLOR.martial} 50%)` : SEC_COLOR[[...s][0]]) : '';
+      cells += `<button class="day${s ? ' has' : ''}${k === today ? ' today' : ''}${k === diary.day ? ' sel' : ''}" data-act="day" data-d="${k}"${s ? ` style="--dot:${bg}"` : ''}><span>${d}</span>${s ? '<i></i>' : ''}</button>`;
+    }
+    // elenco
+    const list = diary.day ? all.filter((h) => dkey(h.at) === diary.day) : all.slice(0, 20);
+    const dd = diary.day ? new Date(diary.day + 'T12:00:00') : null;
+    const ltitle = dd ? GIORNI[dd.getDay()] + ' ' + dd.getDate() + ' ' + MESI[dd.getMonth()] : 'Ultime sessioni';
+    const rows = list.length ? list.map((h) => {
+      const d = new Date(h.at);
+      const when = (diary.day ? '' : d.getDate() + ' ' + MESI[d.getMonth()].slice(0, 3) + ' · ') + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+      const bits = [when, fmt(h.secs)];
+      if (h.rounds) bits.push(h.rounds + ' round');
+      return `<button class="hrow" data-act="hdel" data-at="${h.at}" style="--c:${SEC_COLOR[secOf(h)]}">
+          <i></i><span><b>${esc(h.name)}</b><small>${bits.join(' · ')}</small></span>${h.completed ? '' : '<em>fermato</em>'}
+        </button>`;
+    }).join('') : `<p class="hint">${diary.day ? 'Nessuna sessione in questo giorno.' : 'Le sessioni finite compaiono qui.'}</p>`;
+    const days = data.backupAt ? Math.floor((Date.now() - data.backupAt) / 864e5) : null;
+    const old = all.length && (days === null || days >= 30);
+    const bkTxt = days === null ? 'mai fatto' : days === 0 ? 'oggi' : days === 1 ? 'ieri' : days + ' giorni fa';
+    return `
+      <header class="top"><h1>Diario</h1><button class="ver" id="ver">v${VERSION}</button></header>
+      <div class="stats">
+        <div class="stat"><b class="num">${streak()}</b><small>giorni di fila</small></div>
+        <div class="stat"><b class="num">${weekMin}</b><small>min questa settimana</small></div>
+        <div class="stat"><b class="num">${week.length}</b><small>sessioni in settimana</small></div>
+      </div>
+      <section class="cal">
+        <div class="calhead">
+          <button class="icon" data-act="mprev" aria-label="Mese prima">‹</button>
+          <b>${MESI[diary.m]} ${diary.y}</b>
+          <button class="icon" data-act="mnext" aria-label="Mese dopo">›</button>
+        </div>
+        <div class="dow"><span>L</span><span>M</span><span>M</span><span>G</span><span>V</span><span>S</span><span>D</span></div>
+        <div class="grid">${cells}</div>
+        <div class="legend"><span style="--c:${SEC_COLOR.train}">Allenamento</span><span style="--c:${SEC_COLOR.martial}">Arti marziali</span></div>
+      </section>
+      <h2>${ltitle}${diary.day ? ' <button class="link" data-act="dayAll">tutte</button>' : ''}</h2>
+      <div class="hlist">${rows}</div>
+      <h2>Backup</h2>
+      <div class="backup${old ? ' warn' : ''}">
+        <p>I dati stanno solo su questo telefono. Ultimo backup: <b>${bkTxt}</b>${old ? ' · fanne uno ora' : ''}.</p>
+        <div class="brow">
+          <button class="btn ghost" data-act="export">Esporta</button>
+          <button class="btn ghost" data-act="import">Importa</button>
+        </div>
+        <input type="file" id="impfile" accept="application/json,.json" hidden>
+      </div>`;
+  }
+
+  async function exportData() {
+    const txt = JSON.stringify({ app: 'sport', v: VERSION, at: Date.now(), data }, null, 1);
+    const name = 'sport-backup-' + dkey(Date.now()) + '.json';
+    const file = new File([txt], name, { type: 'application/json' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Backup Sport' });   // iPhone: «Salva su File»
+      } else {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(file); a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      }
+      data.backupAt = Date.now(); persist(); render();
+    } catch (e) { /* annullato */ }
+  }
+
+  function importData(file) {
+    const rd = new FileReader();
+    rd.onload = () => {
+      let inc = null;
+      try { inc = JSON.parse(rd.result); } catch (e) { inc = null; }
+      const d = inc && inc.app === 'sport' && inc.data;
+      if (!d || !Array.isArray(d.history) || !Array.isArray(d.saved)) { openConfirm('Questo file non è un backup di Sport.', 'Ok', null); return; }
+      // unisce senza doppioni: sessioni per orario, salvati per id
+      const seen = new Set(data.history.map((h) => h.at));
+      const newH = d.history.filter((h) => h && h.at && TYPES[h.type] && !seen.has(h.at));
+      const ids = new Set(data.saved.map((s) => s.id));
+      const newS = d.saved.filter((s) => s && s.id && TYPES[s.type] && !ids.has(s.id));
+      data.history = data.history.concat(newH).sort((a, b) => b.at - a.at).slice(0, 500);
+      data.saved = data.saved.concat(newS);
+      persist(); render();
+      openConfirm(`Importati: ${newH.length} ${newH.length === 1 ? 'sessione' : 'sessioni'} e ${newS.length} ${newS.length === 1 ? 'timer salvato' : 'timer salvati'}.`, 'Ok', null);
+    };
+    rd.readAsText(file);
+  }
+
+  // Finestrella di conferma semplice
+  function openConfirm(text, okLabel, onOk, danger) {
+    const sh = $('sheet');
+    sh.innerHTML = `
+      <div class="sbox" role="dialog">
+        <h3>${esc(text)}</h3>
+        <div class="srow${onOk ? '' : ' one'}">
+          ${onOk ? '<button class="btn ghost" data-s="no">Annulla</button>' : ''}
+          <button class="btn ${danger ? 'ghost danger' : 'primary'}" data-s="ok">${esc(okLabel)}</button>
+        </div>
+      </div>`;
+    sh.hidden = false;
+    const close = () => { sh.hidden = true; sh.innerHTML = ''; sh.onclick = null; };
+    sh.onclick = (e) => {
+      if (e.target === sh) return close();
+      const b = e.target.closest('[data-s]');
+      if (!b) return;
+      close();
+      if (b.dataset.s === 'ok' && onOk) onOk();
+    };
   }
 
   function fieldDisp(f, v) { return f.kind === 'int' ? String(v) : f.zero && !v ? f.zero : fmt(v); }
@@ -702,6 +848,19 @@
         persist(); render();
       });
     }
+    else if (a === 'mprev' || a === 'mnext') {
+      diary.m += a === 'mnext' ? 1 : -1;
+      if (diary.m < 0) { diary.m = 11; diary.y--; } else if (diary.m > 11) { diary.m = 0; diary.y++; }
+      diary.day = null; render();
+    }
+    else if (a === 'day') { diary.day = diary.day === b.dataset.d ? null : b.dataset.d; render(); }
+    else if (a === 'dayAll') { diary.day = null; render(); }
+    else if (a === 'hdel') {
+      const at = +b.dataset.at;
+      openConfirm('Togliere questa sessione dal diario?', 'Togli', () => { data.history = data.history.filter((h) => h.at !== at); persist(); render(); }, true);
+    }
+    else if (a === 'export') exportData();
+    else if (a === 'import') $('impfile').click();
     else if (a === 'saveDone') {
       openSheet(run.name, false, (res, name) => {
         const id = uid();
@@ -732,6 +891,7 @@
   // Scrivere il valore a mano: "1:30", "90", "130"
   root.addEventListener('focusin', (e) => { if (e.target.classList.contains('val')) setTimeout(() => e.target.select(), 30); });
   root.addEventListener('change', (e) => {
+    if (e.target.id === 'impfile') { const f = e.target.files && e.target.files[0]; if (f) importData(f); e.target.value = ''; return; }
     const inp = e.target.closest('.val');
     if (!inp) return;
     const ctx = ctxOf(inp);
