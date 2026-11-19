@@ -1,7 +1,7 @@
 /* Flow (ex Sport) — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.9.2';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.10.0';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 6;                    // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -12,6 +12,7 @@
 
   /* ================= Dati (solo nel telefono) ================= */
   const KEY = 'sport.data.v1';
+  const HMAX = 3000;                 // sessioni tenute nel Diario (~1 MB al massimo)
   const data = (() => {
     let d = null;
     try { d = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { d = null; }
@@ -594,7 +595,7 @@
         at: Date.now(), type: run.type, name: run.name, cfg: run.cfg, secs: Math.round(secs),
         rounds: run.rounds || undefined, splits: run.splits.length ? run.splits : undefined, completed,
       });
-      data.history = data.history.slice(0, 500);
+      data.history = data.history.slice(0, HMAX);
       persist();
     }
     if (completed) { if (run.type === 'boxe') beeps('bell', 3, 260); else { beep('long'); setTimeout(() => beep('long'), 260); } }
@@ -701,7 +702,7 @@
     return `
       ${topHTML('Flow')}
       <p class="secname">${SECTIONS.find((s) => s.k === sec).name}</p>
-      ${repeat}
+      ${restoreHTML()}${repeat}
       <h2>I miei</h2>${mine}
       <h2>Nuovo</h2><div class="tiles">${grid}${wides}${extra}</div>`;
   }
@@ -727,7 +728,7 @@
       </div>`;
     return `
       ${topHTML('Flow')}
-      <p class="secname">Stretching${sk ? ` <span class="streak">${sk} ${sk === 1 ? 'giorno' : 'giorni di fila'}</span>` : ''}</p>
+      ${restoreHTML()}<p class="secname">Stretching${sk ? ` <span class="streak">${sk} ${sk === 1 ? 'giorno' : 'giorni di fila'}</span>` : ''}</p>
       ${repeat}
       <h2>Per zona</h2><div class="tiles">${Object.keys(ROUTINES).filter((k) => ROUTINES[k].g === 'z').map(rtile).join('')}</div>
       <h2>Per momento</h2><div class="tiles">${Object.keys(ROUTINES).filter((k) => ROUTINES[k].g === 'm').map(rtile).join('')}</div>
@@ -868,7 +869,7 @@
         </button>`;
     }).join('') : `<p class="hint">${diary.day ? 'Nessuna sessione in questo giorno.' : 'Le sessioni finite compaiono qui.'}</p>`;
     const days = data.backupAt ? Math.floor((Date.now() - data.backupAt) / 864e5) : null;
-    const old = all.length && (days === null || days >= 30);
+    const old = all.length && (days === null || days >= 7);
     return `
       <header class="top"><h1>Diario</h1>
         <button class="icon bk${old ? ' warn' : ''}" data-act="backup" aria-label="Backup"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18.5h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 9.6 4.5 4.5 0 0 0 7 18.5z"/><path d="M12 10.5v5.5M9.8 13.8 12 16l2.2-2.2"/></svg></button>
@@ -890,8 +891,23 @@
       </section>
       <h2>${ltitle}${diary.day ? ' <button class="link" data-act="dayAll">tutte</button>' : ''}</h2>
       <div class="hlist">${rows}</div>
-      <input type="file" id="impfile" accept="application/json,.json" hidden>`;
+      ${restoreHTML()}`;
   }
+
+  // Backup: promemoria e ripristino
+  const isEmpty = () => !data.history.length && !data.saved.length;
+  function backupWhen() {
+    const days = data.backupAt ? Math.floor((Date.now() - data.backupAt) / 864e5) : null;
+    return days === null ? 'mai fatto' : days === 0 ? 'oggi' : days === 1 ? 'ieri' : days + ' giorni fa';
+  }
+  const needBackup = () => data.history.length && (!data.backupAt || Date.now() - data.backupAt >= 7 * 864e5);
+  function restoreHTML() {
+    return isEmpty() ? `
+      <button class="bkcard" data-act="restore">
+        <i>${CLOUD}</i><span><b>Hai reinstallato l’app?</b><small>Ripristina i dati dal backup in File / iCloud</small></span><em>›</em>
+      </button>` : '';
+  }
+  const CLOUD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18.5h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 9.6 4.5 4.5 0 0 0 7 18.5z"/><path d="M12 10.5v5.5M9.8 13.8 12 16l2.2-2.2"/></svg>';
 
   function openBackup() {
     const days = data.backupAt ? Math.floor((Date.now() - data.backupAt) / 864e5) : null;
@@ -901,6 +917,7 @@
       <div class="sbox" role="dialog" aria-label="Backup">
         <h3>Backup</h3>
         <p>I dati stanno solo su questo telefono. Ultimo: <b>${when}</b></p>
+        <p class="snote">Esporta → Salva su File → iCloud Drive. Il file si chiama sempre «flow-backup»: salvalo nella stessa cartella e sostituisci il vecchio.</p>
         <div class="srow" style="grid-template-columns:1fr 1fr">
           <button class="btn ghost" data-s="imp">Importa</button>
           <button class="btn primary" data-s="exp">Esporta</button>
@@ -919,7 +936,7 @@
 
   async function exportData() {
     const txt = JSON.stringify({ app: 'sport', v: VERSION, at: Date.now(), data }, null, 1);
-    const name = 'flow-backup-' + dkey(Date.now()) + '.json';
+    const name = 'flow-backup.json';   // sempre lo stesso nome: il nuovo può sostituire il vecchio
     const file = new File([txt], name, { type: 'application/json' });
     try {
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -946,7 +963,7 @@
       const newH = d.history.filter((h) => h && h.at && TYPES[h.type] && !seen.has(h.at));
       const ids = new Set(data.saved.map((s) => s.id));
       const newS = d.saved.filter((s) => s && s.id && TYPES[s.type] && !ids.has(s.id));
-      data.history = data.history.concat(newH).sort((a, b) => b.at - a.at).slice(0, 500);
+      data.history = data.history.concat(newH).sort((a, b) => b.at - a.at).slice(0, HMAX);
       data.saved = data.saved.concat(newS);
       persist(); render();
       openConfirm(`Importati: ${newH.length} ${newH.length === 1 ? 'sessione' : 'sessioni'} e ${newS.length} ${newS.length === 1 ? 'timer salvato' : 'timer salvati'}.`, 'Ok', null);
@@ -1121,6 +1138,7 @@
         ${sk ? `<p class="dstreak">${sk} ${sk === 1 ? 'giorno' : 'giorni di fila'} di stretching</p>` : ''}
       </section>
       <div class="dactions">
+        ${needBackup() ? `<button class="bkcard" data-act="bkNow"><i>${CLOUD}</i><span><b>Salva il backup</b><small>Un tocco → Salva su File → iCloud · ultimo: ${backupWhen()}</small></span><em>›</em></button>` : ''}
         ${run.savedId ? '' : '<button class="btn ghost" data-act="saveDone">☆ Salva allenamento</button>'}
         <button class="btn primary" data-act="home">Home</button>
       </div>`;
@@ -1264,6 +1282,8 @@
       openConfirm('Togliere questa sessione dal diario?', 'Togli', () => { data.history = data.history.filter((h) => h.at !== at); persist(); render(); }, true);
     }
     else if (a === 'backup') openBackup();
+    else if (a === 'bkNow') exportData();
+    else if (a === 'restore') $('impfile').click();
     else if (a === 'saveDone') {
       openSheet(run.name, false, (res, name) => {
         const id = uid();
@@ -1337,7 +1357,6 @@
   // Scrivere il valore a mano: "1:30", "90", "130"
   root.addEventListener('focusin', (e) => { if (e.target.classList.contains('val')) setTimeout(() => e.target.select(), 30); });
   root.addEventListener('change', (e) => {
-    if (e.target.id === 'impfile') { const f = e.target.files && e.target.files[0]; if (f) importData(f); e.target.value = ''; return; }
     const inp = e.target.closest('.val');
     if (!inp) return;
     const ctx = ctxOf(inp);
@@ -1348,6 +1367,7 @@
   });
   root.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.target.classList.contains('val') || e.target.id === 'cname')) e.target.blur(); });
   root.addEventListener('input', (e) => { if (e.target.id === 'cname' && cur) cur.name = e.target.value; });
+  $('impfile').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) importData(f); e.target.value = ''; });
   $('tabbar').addEventListener('click', (e) => {
     const b = e.target.closest('[data-act="sec"]');
     if (b) { data.section = b.dataset.s; persist(); render(); }

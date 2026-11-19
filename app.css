@@ -465,3 +465,14 @@ body.dragmode { -webkit-user-select: none; user-select: none; }
 /* Nome e logo */
 .top h1.brand { display: flex; align-items: center; gap: 10px; }
 .top .logo { width: 46px; height: 26px; flex: none; }
+/* Backup: promemoria e ripristino */
+.bkcard { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px 16px; margin-bottom: 14px; border-radius: 20px;
+  background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--rest) 18%, transparent), transparent 60%), var(--surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rest) 35%, transparent); }
+.bkcard i { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--rest) 20%, transparent); color: var(--rest-2); }
+.bkcard svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.bkcard span { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bkcard b { font-size: 17px; }
+.bkcard small { color: var(--muted); font-size: 13px; line-height: 1.3; }
+.bkcard em { font-style: normal; font-size: 24px; color: var(--muted); }
+.dactions .bkcard { margin-bottom: 0; }
