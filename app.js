@@ -1,7 +1,7 @@
 /* Flow (ex Sport) — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.11.0';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.12.0';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 6;                    // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -217,57 +217,85 @@
   }
   const stretchName = (c) => (c.r && ROUTINES[c.r] ? ROUTINES[c.r].name : 'Stretching') + ((c.sets || 1) > 1 ? ' × ' + c.sets : '');
 
-  // Disegno a linea dell'esercizio (stesso stile per tutti)
-  // stile «corpo pieno»: arti spessi, testa piena; in grigio scuro la posizione di partenza (s0)
-  const LIMB = { neck: 5, back: 11, ua: 6.5, fa: 5.5, th: 9.5, sh: 7.5 };
+  // Figura «pittogramma nell'anello»: sagoma bianca piena dentro un cerchio scuro, parte che tira in lilla.
+  // La figura viene rimpicciolita e centrata finché non esce mai dal cerchio.
   const parsePose = (p) => { const q = {}; p.split(' ').forEach((t) => { const [x, y] = t.slice(1).split(',').map(Number); q[t[0]] = [x, y]; }); return q; };
-  function bodySVG(q, ex, ghost) {
+  const RAD = { ua: [4.4, 3.5], fa: [3.5, 2.7], th: [6.4, 4.6], sh: [4.6, 3.1] };   // raggi inizio/fine di ogni arto
+  const F1 = (v) => v.toFixed(1);
+  // capsula che si assottiglia da a (raggio r1) a b (raggio r2)
+  function cap(a, b, r1, r2) {
+    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+    if (L < 0.5) return `M${F1(a[0] - r1)} ${F1(a[1])}a${r1} ${r1} 0 1 0 ${2 * r1} 0a${r1} ${r1} 0 1 0 ${-2 * r1} 0Z`;
+    const nx = -dy / L, ny = dx / L;
+    return `M${F1(a[0] + nx * r1)} ${F1(a[1] + ny * r1)}L${F1(b[0] + nx * r2)} ${F1(b[1] + ny * r2)}A${r2} ${r2} 0 0 0 ${F1(b[0] - nx * r2)} ${F1(b[1] - ny * r2)}L${F1(a[0] - nx * r1)} ${F1(a[1] - ny * r1)}A${r1} ${r1} 0 0 0 ${F1(a[0] + nx * r1)} ${F1(a[1] + ny * r1)}Z`;
+  }
+  const qpt = (a, c, b, t) => [(1 - t) * (1 - t) * a[0] + 2 * (1 - t) * t * c[0] + t * t * b[0], (1 - t) * (1 - t) * a[1] + 2 * (1 - t) * t * c[1] + t * t * b[1]];
+  function hlSet(ex) {
     const hl = new Set();
-    if (!ghost) ex.hl.split(' ').forEach((h) => {
+    (ex.hl || '').split(' ').filter(Boolean).forEach((h) => {
       if (h.startsWith('arm')) { hl.add('ua' + h[3]); hl.add('fa' + h[3]); }
       else if (h.startsWith('leg')) { hl.add('th' + h[3]); hl.add('sh' + h[3]); }
       else hl.add(h);
     });
-    const L = (a, b) => `M${q[a][0]} ${q[a][1]}L${q[b][0]} ${q[b][1]}`;
-    const [hx, hy] = q.H, [nx, ny] = q.N, dl = Math.hypot(nx - hx, ny - hy) || 1, R = 7.6;
-    const segs = [
-      ['ua2', L('N', 'e'), 2], ['fa2', L('e', 'w'), 2], ['th2', L('P', 'k'), 2], ['sh2', L('k', 'f'), 2],
-      ['neck', `M${nx} ${ny}L${(hx + (nx - hx) * R / dl).toFixed(1)} ${(hy + (ny - hy) * R / dl).toFixed(1)}`, 1],
-      ['back', q.B ? `M${q.N[0]} ${q.N[1]}Q${q.B[0]} ${q.B[1]} ${q.P[0]} ${q.P[1]}` : L('N', 'P'), 1],
-      ['th1', L('P', 'K'), 1], ['sh1', L('K', 'F'), 1], ['ua1', L('N', 'E'), 1], ['fa1', L('E', 'W'), 1],
-    ];
-    const cls = (k, s) => ghost ? 'g' : hl.has(k) ? 'h' : 's' + s;
-    const path = (k, d, s) => `<path class="${cls(k, s)}" stroke-width="${LIMB[k.replace(/[12]$/, '')]}" d="${d}"/>`;
-    let far = '', near = '';
-    segs.forEach(([k, d, s]) => { if (s === 2) far += path(k, d, s); else near += path(k, d, s); });
-    if (ex.d) [['K', 'F', 1], ['k', 'f', 2]].forEach(([k, f, s]) => {   // punte dei piedi appoggiati
-      if (q[f][1] >= 88 && Math.abs(q[k][1] - q[f][1]) > 10) {
-        const el = `<path class="${cls('sh' + s, s)}" stroke-width="5" d="M${q[f][0]} ${q[f][1]}l${7 * ex.d} 0"/>`;
-        if (s === 2) far += el; else near += el;
-      }
-    });
-    const head = `<circle class="${ghost ? 'gf' : 'hf'}" cx="${hx}" cy="${hy}" r="${R}"/>`;
-    const dots = ['N', 'P'].filter((k) => hl.has(k)).map((k) => `<circle class="hd" cx="${q[k][0]}" cy="${q[k][1]}" r="6.5"/>`).join('');
-    return `<g${ghost ? ' class="gh"' : ''}>${far}${head}${near}${dots}</g>`;
+    return hl;
   }
-  function figSVG(id, cls) {
+  let figN = 0;
+  function figSVG(id, cls, ring) {
     const ex = EX[id];
     if (!ex) return '';
-    // frecce lilla: verso del movimento (2 punti = dritta, 3 = curva)
-    let arrows = '';
-    if (ex.a) ex.a.split(';').forEach((t) => {
-      const v = t.split(',').map(Number);
-      const [x2, y2] = v.slice(-2), [px, py] = v.length === 6 ? [v[2], v[3]] : [v[0], v[1]];
-      const ang = Math.atan2(y2 - py, x2 - px), h = 5.2;
-      const p1 = [x2 - h * Math.cos(ang - 0.5), y2 - h * Math.sin(ang - 0.5)], p2 = [x2 - h * Math.cos(ang + 0.5), y2 - h * Math.sin(ang + 0.5)];
-      const d = v.length === 6 ? `M${v[0]} ${v[1]}Q${v[2]} ${v[3]} ${x2} ${y2}` : `M${v[0]} ${v[1]}L${x2} ${y2}`;
-      arrows += `<path class="ar" d="${d}"/><path class="ah" d="M${x2} ${y2}L${p1[0].toFixed(1)} ${p1[1].toFixed(1)}L${p2[0].toFixed(1)} ${p2[1].toFixed(1)}Z"/>`;
+    const q = parsePose(ex.p), hl = hlSet(ex);
+    const [hx, hy] = q.H, [nx, ny] = q.N, dl = Math.hypot(nx - hx, ny - hy) || 1;
+    const head = [hx + (hx - nx) / dl * 2.6, hy + (hy - ny) / dl * 2.6];   // testa staccata dal busto
+    const back = q.B ? [q.N, qpt(q.N, q.B, q.P, 0.33), qpt(q.N, q.B, q.P, 0.66), q.P] : [q.N, q.P];
+    const limbs = [['ua2', q.N, q.e, 2], ['fa2', q.e, q.w, 2], ['th2', q.P, q.k, 2], ['sh2', q.k, q.f, 2],
+      ['ua1', q.N, q.E, 1], ['fa1', q.E, q.W, 1], ['th1', q.P, q.K, 1], ['sh1', q.K, q.F, 1]];
+    const feet = [];
+    if (ex.d) [['K', 'F', 1], ['k', 'f', 2]].forEach(([k, f, s]) => { if (q[f][1] >= 88 && Math.abs(q[k][1] - q[f][1]) > 10) feet.push([s, q[f], [q[f][0] + 6 * ex.d, q[f][1] + 0.5]]); });
+    const arrows = (ex.a || '').split(';').filter(Boolean).map((t) => t.split(',').map(Number));
+    // quanto rimpicciolire: tutti i punti (con lo spessore) devono stare entro il raggio utile
+    const pts = [[head, 7]].concat(Object.values(q).map((p) => [p, 6.5]), arrows.flatMap((v) => [[[v[0], v[1]], 4], [v.slice(-2), 5]]));
+    const xs = pts.map(([p, r]) => [p[0] - r, p[0] + r]).flat(), ys = pts.map(([p, r]) => [p[1] - r, p[1] + r]).flat();
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const far = Math.max(...pts.map(([p, r]) => Math.hypot(p[0] - cx, p[1] - cy) + r));
+    const k = Math.min(1, 49 / far);
+    const T = `translate(60 60) scale(${k.toFixed(3)}) translate(${F1(-cx)} ${F1(-cy)})`;
+    const col = (key, s) => hl.has(key) ? 'url(#flg)' : s === 2 ? '#6E6E7C' : '#F2F2F7';
+    const edge = ' stroke="#16161D" stroke-width="2.2" paint-order="stroke"';
+    let farS = '', nearS = '';
+    limbs.forEach(([key, a, b, s]) => {
+      const r = RAD[key.slice(0, 2)];
+      const el = `<path fill="${col(key, s)}"${s === 1 ? edge : ''} d="${cap(a, b, r[0], r[1])}"/>`;
+      if (s === 2) farS += el; else nearS += el;
     });
-    const ground = ex.top ? '' : '<path class="gr" d="M6 92.5H114"/>';
-    const wall = ex.wall ? `<path class="gr" d="M${ex.wall} 6V92.5"/>` : '';
-    const ghost = ex.s0 ? bodySVG(parsePose(ex.s0), ex, true) : '';
-    return `<svg class="fig${cls ? ' ' + cls : ''}" viewBox="0 0 120 100" aria-hidden="true">${ground}${wall}${ghost}${bodySVG(parsePose(ex.p), ex, false)}<g class="arw">${arrows}</g></svg>`;
+    feet.forEach(([s, a, b]) => { const el = `<path fill="${col('sh' + s, s)}" d="${cap(a, b, 2.9, 2.4)}"/>`; if (s === 2) farS += el; else nearS += el; });
+    let torso = '';
+    for (let i = 0; i < back.length - 1; i++) {
+      const t1 = i / (back.length - 1), t2 = (i + 1) / (back.length - 1);
+      torso += `<path fill="${col('back', 1)}" d="${cap(back[i], back[i + 1], 7.6 - 0.8 * t1, 7.6 - 0.8 * t2)}"/>`;
+    }
+    const headS = `<circle fill="${hl.has('neck') ? 'url(#flg)' : '#F2F2F7'}" stroke="#16161D" stroke-width="2.4" paint-order="stroke" cx="${F1(head[0])}" cy="${F1(head[1])}" r="6.6"/>`;
+    const dots = ['N', 'P'].filter((p) => hl.has(p)).map((p) => `<circle fill="url(#flg)" cx="${q[p][0]}" cy="${q[p][1]}" r="5.6"/>`).join('');
+    let arw = '';
+    arrows.forEach((v) => {
+      const [x2, y2] = v.slice(-2), [px, py] = v.length === 6 ? [v[2], v[3]] : [v[0], v[1]];
+      const ang = Math.atan2(y2 - py, x2 - px), h = 6;
+      const p1 = [x2 - h * Math.cos(ang - 0.55), y2 - h * Math.sin(ang - 0.55)], p2 = [x2 - h * Math.cos(ang + 0.55), y2 - h * Math.sin(ang + 0.55)];
+      const d = v.length === 6 ? `M${v[0]} ${v[1]}Q${v[2]} ${v[3]} ${x2} ${y2}` : `M${v[0]} ${v[1]}L${x2} ${y2}`;
+      arw += `<path class="ar" d="${d}"/><path class="ah" d="M${x2} ${y2}L${F1(p1[0])} ${F1(p1[1])}L${F1(p2[0])} ${F1(p2[1])}Z"/>`;
+    });
+    // pavimento e muro seguono la figura, tagliati dal cerchio
+    const cid = 'fc' + (++figN);
+    const floor = ex.top ? '' : `<rect x="-200" y="93" width="520" height="${F1(2.6 / k)}" rx="1.3" fill="#34343F"/>`;
+    const wall = ex.wall ? `<rect x="${ex.wall - 1.3}" y="-200" width="2.6" height="293" fill="#34343F"/>` : '';
+    const C = 2 * Math.PI * 57;
+    const rings = ring
+      ? `<circle cx="60" cy="60" r="57" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="4"/><circle class="fring" cx="60" cy="60" r="57" fill="none" stroke="url(#flg)" stroke-width="4" stroke-linecap="round" stroke-dasharray="0 ${F1(C)}" transform="rotate(-90 60 60)"/>`
+      : `<circle cx="60" cy="60" r="57" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="3"/>`;
+    return `<svg class="fig${cls ? ' ' + cls : ''}" viewBox="0 0 120 120" aria-hidden="true"><defs><clipPath id="${cid}"><circle cx="60" cy="60" r="55"/></clipPath></defs>`
+      + `<circle cx="60" cy="60" r="59" fill="#16161D"/><g clip-path="url(#${cid})"><g transform="${T}">${floor}${wall}</g></g>`
+      + `<g class="fgf"><g transform="${T}">${farS}${torso}${headS}${nearS}${dots}<g class="arw">${arw}</g></g></g>${rings}</svg>`;
   }
+  const FRING = 2 * Math.PI * 57;
 
   function blockTotal(b) { return b.t === 'rest' ? b.secs : TYPES[b.t].total(b); }
   const label = (type, cfg) => type === 'stretch' ? stretchName(cfg) : type === 'mix' ? 'MIX ' + fmtShort(TYPES.mix.total(cfg)) : (TYPES[type].short || TYPES[type].name) + ' ' + TYPES[type].summary(cfg);
@@ -540,14 +568,15 @@
     const w = s.kind === 'work' ? s : seg.slice(i + 1).find((x) => x.kind === 'work') || s;   // posizione mostrata
     if (run.figAt !== w) {
       run.figAt = w;
-      $('fig').innerHTML = figSVG(w.ex, 'big');
+      $('fig').innerHTML = figSVG(w.ex, 'big', true);
       $('exname').textContent = EX[w.ex].n;
       $('exhow').textContent = EX[w.ex].how;
     }
     $('exside').textContent = (s.swap ? s.sideTxt : w.sideTxt) || '';
     $('fig').classList.toggle('flip', w.sideTxt === 'lato sinistro');   // lato sinistro = figura a specchio
     $('rRound').textContent = w.k + '/' + w.of + (w.sets > 1 ? ' · serie ' + w.set + '/' + w.sets : '');
-    $('bar').style.transform = 'scaleX(' + Math.max(0, Math.min(1, frac)).toFixed(4) + ')';
+    const fr = $('fig').querySelector('.fring');   // l'anello attorno alla figura si svuota col tempo
+    if (fr) fr.setAttribute('stroke-dasharray', (FRING * Math.max(0, Math.min(1, frac))).toFixed(1) + ' ' + FRING.toFixed(1));
     const nx = seg[i + 1];
     let nxt;
     if (run.paused) nxt = 'In pausa · tocca per riprendere';
@@ -1135,7 +1164,6 @@
         <div class="exname" id="exname"></div>
         <div class="exside" id="exside"></div>
         <div class="time" id="time"></div>
-        <div class="sbar"><span id="bar"></span></div>
         <div class="next" id="next"></div>
         <div class="exhow small" id="exhow"></div>
       </section>
