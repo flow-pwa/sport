@@ -1,7 +1,7 @@
 /* Sport — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.5.0';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.5.1';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 10;                   // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -412,7 +412,7 @@
 
   function render() {
     body.className = '';
-    if (view === 'home') root.innerHTML = homeHTML();
+    if (view === 'home') { body.className = 'has-tabs'; root.innerHTML = homeHTML(); }
     else if (view === 'config') root.innerHTML = cur.type === 'mix' ? mixHTML() : configHTML();
     else if (view === 'recupero') root.innerHTML = recHTML();
     else if (view === 'run') { body.className = 'running'; root.innerHTML = runHTML(); bindRun(); }
@@ -420,7 +420,16 @@
     window.scrollTo(0, 0);
   }
 
+  // Menu in basso: una voce per sezione (poi Stretching e Diario)
+  const ICONS = {
+    train: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.6 2.2M9.5 2.5h5M12 2.5v3.5M18.6 6.4l1.4-1.4"/></svg>',
+    martial: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 11V7.5A4.5 4.5 0 0 1 12.5 3H14a4.5 4.5 0 0 1 4.5 4.5V13a5.5 5.5 0 0 1-5.5 5.5h-1.5A4.5 4.5 0 0 1 7 14v-.5"/><path d="M8 11a2.2 2.2 0 0 0-2.2 2.2v.1A2.2 2.2 0 0 0 8 15.5h3"/><path d="M8.5 18.5V21h8v-2.5M12 7.5h4"/></svg>',
+  };
   const SECTIONS = [{ k: 'train', name: 'Allenamento' }, { k: 'martial', name: 'Arti marziali' }];
+  function lastName(l) {
+    const s = l.savedId && data.saved.find((x) => x.id === l.savedId);
+    return s ? s.name : label(l.type, Object.assign(clone(TYPES[l.type].def), l.cfg));
+  }
 
   function homeHTML() {
     const sec = data.section;
@@ -428,7 +437,7 @@
     const repeat = l && TYPES[l.type] ? `
       <button class="repeat" data-act="repeat" style="--c:${TYPES[l.type].color}">
         <span class="play">▶</span>
-        <span class="rtxt"><b>Ripeti</b><small>${esc(l.name)}</small></span>
+        <span class="rtxt"><b>Ripeti</b><small>${esc(lastName(l))}</small></span>
       </button>` : '';
     const savedHere = data.saved.filter((s) => TYPES[s.type] && TYPES[s.type].sec === sec);
     const mine = savedHere.length
@@ -436,7 +445,7 @@
           <button class="chip" data-act="openSaved" data-id="${esc(s.id)}" style="--c:${TYPES[s.type].color}">
             <b>${esc(s.name)}</b><small>${esc((s.type === 'boxe' ? '' : TYPES[s.type].name + ' · ') + (s.type === 'mix' ? fmtShort(TYPES.mix.total(s.cfg)) : TYPES[s.type].summary(s.cfg)))}</small>
           </button>`).join('')}</div>`
-      : `<p class="hint">${sec === 'martial' ? 'Imposta il timer a round e tocca ☆ per salvarlo qui (es. «Sacco», «Sparring»).' : 'Imposta un timer e tocca ☆ per salvarlo qui.'}</p>`;
+      : `<p class="hint">Qui trovi i timer che salvi: aprine uno da «Nuovo», regolalo e tocca «☆ Salva nei miei»${sec === 'martial' ? ' (es. «Sacco», «Sparring»)' : ''}.</p>`;
     const tile = (k, t) => `
       <button class="tile${t.wide || sec === 'martial' ? ' wide' : ''}" data-act="new" data-type="${k}" style="--c:${t.color}">
         <i></i><span><b>${t.title || t.name}</b><small>${t.desc}</small></span>${t.wide || sec === 'martial' ? '<em>›</em>' : ''}
@@ -449,13 +458,14 @@
       <button class="tile wide" data-act="recupero" style="--c:${rec.color}">
         <i></i><span><b>${rec.name}</b><small>${rec.desc}</small></span><em>›</em>
       </button>` : '';
-    const seg = SECTIONS.map((s) => `<button class="${s.k === sec ? 'on' : ''}" data-act="sec" data-s="${s.k}">${s.name}</button>`).join('');
+    const tabs = SECTIONS.map((s) => `<button class="${s.k === sec ? 'on' : ''}" data-act="sec" data-s="${s.k}" role="tab" aria-selected="${s.k === sec}">${ICONS[s.k]}<span>${s.name}</span></button>`).join('');
     return `
       <header class="top"><h1>Sport</h1><button class="ver" id="ver">v${VERSION}</button></header>
-      <nav class="seg" role="tablist">${seg}</nav>
+      <p class="secname">${SECTIONS.find((s) => s.k === sec).name}</p>
       ${repeat}
       <h2>I miei</h2>${mine}
-      <h2>Nuovo</h2><div class="tiles">${grid}${wides}${extra}</div>`;
+      <h2>Nuovo</h2><div class="tiles">${grid}${wides}${extra}</div>
+      <nav class="tabbar" role="tablist">${tabs}</nav>`;
   }
 
   function fieldDisp(f, v) { return f.kind === 'int' ? String(v) : f.zero && !v ? f.zero : fmt(v); }
@@ -474,9 +484,15 @@
       <header class="bar" style="--c:${t.color}">
         <button class="icon" data-act="home" aria-label="Indietro">‹</button>
         <h1>${t.title || t.name}</h1>
-        <button class="icon star${saved ? ' on' : ''}" data-act="star" aria-label="Salva">${saved ? '★' : '☆'}</button>
+        <span class="icon"></span>
       </header>
       ${saved ? `<p class="sub">${esc(saved.name)}</p>` : `<p class="sub muted">${t.desc}</p>`}`;
+  }
+
+  function saveRow(t, saved) {
+    return saved
+      ? `<button class="saverow on" data-act="star" style="--c:${t.color}">★ <b>${esc(saved.name)}</b><span>modifica</span></button>`
+      : `<button class="saverow" data-act="star" style="--c:${t.color}">☆ Salva nei miei</button>`;
   }
 
   function configHTML() {
@@ -487,6 +503,7 @@
       ${headerHTML(t, saved)}
       <div class="fields">${t.fields.map((f) => fieldRow(f, cur.cfg[f.k])).join('')}</div>
       <p class="total">Totale <b id="total">${total ? fmt(total) : '—'}</b></p>
+      ${saveRow(t, saved)}
       <button class="btn primary go" data-act="go" style="--c:${t.color}">VIA</button>`;
   }
 
@@ -513,6 +530,7 @@
       <div class="blocks">${cards}</div>
       <div class="adds">${adds}</div>
       <p class="total">Totale <b id="total">${fmt(t.total(cur.cfg))}</b></p>
+      ${saveRow(t, saved)}
       <button class="btn primary go" data-act="go" style="--c:${t.color}">VIA</button>`;
   }
 
@@ -650,7 +668,10 @@
       const s = data.saved.find((x) => x.id === b.dataset.id);
       if (s) { cur = { type: s.type, cfg: Object.assign(clone(TYPES[s.type].def), clone(s.cfg)), savedId: s.id }; view = 'config'; render(); }
     }
-    else if (a === 'repeat') { const l = data.lastBy[data.section]; if (l && TYPES[l.type]) start(l.type, Object.assign(clone(TYPES[l.type].def), clone(l.cfg)), l.name, l.savedId); }
+    else if (a === 'repeat') {
+      const l = data.lastBy[data.section];
+      if (l && TYPES[l.type]) { const s = l.savedId && data.saved.find((x) => x.id === l.savedId); start(l.type, Object.assign(clone(TYPES[l.type].def), clone(l.cfg)), s ? s.name : null, s ? s.id : null); }
+    }
     else if (a === 'sec') { data.section = b.dataset.s; persist(); render(); }
     else if (a === 'go') {
       const s = cur.savedId && data.saved.find((x) => x.id === cur.savedId);
