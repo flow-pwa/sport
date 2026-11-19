@@ -1,7 +1,7 @@
 /* Sport — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.6.1';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.6.2';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 10;                   // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -27,7 +27,6 @@
   })();
   if (data.last && TYPES_SEC_OF(data.last.type) && !data.lastBy[TYPES_SEC_OF(data.last.type)]) data.lastBy[TYPES_SEC_OF(data.last.type)] = data.last;
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* memoria piena o bloccata */ } }
-  const pref = (k, d) => { try { return localStorage.getItem('sport.' + k) || d; } catch (e) { return d; } };
   function TYPES_SEC_OF(type) { return type === 'boxe' ? 'martial' : type ? 'train' : null; }
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
@@ -164,6 +163,7 @@
 
   /* ================= Audio (solo suoni) ================= */
   const audio = { ctx: null, ready: false, els: {} };
+  const AUDIO_MODE = 'wa';           // Web Audio (provato sull'iPhone: va insieme alla musica)
   const SOUNDS = {
     short: { f: 880, d: 0.2 }, long: { f: 1320, d: 0.7 }, half: { f: 660, d: 0.35 }, tic: { f: 1040, d: 0.09 },
     bell: { f: 830, d: 1.8, bell: true },     // campanella del ring
@@ -195,9 +195,10 @@
 
   // Da chiamare dentro un tocco: iOS sblocca l'audio solo così
   function unlockAudio() {
-    try { if (navigator.audioSession) navigator.audioSession.type = pref('asess', 'auto'); } catch (e) { /* niente */ }
+    // «playback»: suona anche col tasto silenzioso (la vecchia scelta della pagina di prova non conta più)
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* niente */ }
     try {
-      if (pref('amode', 'wa') === 'wa') {
+      if (AUDIO_MODE === 'wa') {
         if (!audio.ctx) audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
         if (audio.ctx.state !== 'running') audio.ctx.resume();
         const b = audio.ctx.createBuffer(1, 1, 22050), s = audio.ctx.createBufferSource();
@@ -217,7 +218,7 @@
   function beep(kind) {
     if (!audio.ready) return;
     const snd = SOUNDS[kind];
-    if (pref('amode', 'wa') === 'wa' && audio.ctx) {
+    if (AUDIO_MODE === 'wa' && audio.ctx) {
       const ctx = audio.ctx;
       if (ctx.state !== 'running') ctx.resume();
       const t = ctx.currentTime, g = ctx.createGain();
@@ -249,6 +250,8 @@
     }
   }
   const beeps = (kind, times, gap) => { for (let k = 0; k < times; k++) setTimeout(() => beep(kind), k * gap); };
+
+  const HOLD_MS = 450;               // tieni premuto per fermare: breve, ma evita i tocchi per sbaglio
 
   /* ================= Schermo sempre acceso ================= */
   let lock = null;
@@ -948,13 +951,13 @@
     }
     if (act && run.type === 'fortime') act.addEventListener('click', () => { if (!act.disabled) finish(true); });
 
-    // Fermare = tieni premuto 1 secondo (niente stop per sbaglio con le mani sudate)
+    // Fermare = tieni premuto un attimo (niente stop per sbaglio con le mani sudate)
     const hb = $('stop');
     let holdT = 0;
     const end = () => { clearTimeout(holdT); hb.classList.remove('holding'); };
     hb.addEventListener('pointerdown', (e) => {
       e.preventDefault(); hb.classList.add('holding');
-      holdT = setTimeout(() => { end(); finish(false); }, 1000);
+      holdT = setTimeout(() => { end(); finish(false); }, HOLD_MS);
     });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => hb.addEventListener(ev, end));
     hb.addEventListener('contextmenu', (e) => e.preventDefault());

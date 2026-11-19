@@ -44,7 +44,7 @@ button { border: 0; background: none; padding: 0; cursor: pointer; touch-action:
 /* Menu in basso: una voce per sezione */
 .secname { margin: -12px 0 16px; color: var(--muted); font-size: 15px; font-weight: 600; }
 /* Con il menu: la pagina scorre dentro, la barra resta in fondo (niente position: fixed, che su iPhone si sposta) */
-body.has-tabs { height: 100%; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+body.has-tabs { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
 body.has-tabs .app { flex: 1 1 auto; min-height: 0; width: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding-bottom: 24px; }
 .tabbar {
   position: relative; z-index: 10; flex: none; width: 100%;
@@ -298,7 +298,7 @@ body.flash::after { content: ""; position: fixed; inset: 0; z-index: 2; backgrou
   background: rgba(255,255,255,.07); color: var(--text); border: 1px solid rgba(255,255,255,.1);
 }
 .btn.hold .fill { position: absolute; inset: 0; background: color-mix(in srgb, var(--accent) 55%, transparent); transform-origin: left; transform: scaleX(0); }
-.btn.hold.holding .fill { transform: scaleX(1); transition: transform 1s linear; }
+.btn.hold.holding .fill { transform: scaleX(1); transition: transform .45s linear; }
 .btn.hold .lbl { position: relative; }
 
 /* ---------- Fine ---------- */
