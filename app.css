@@ -43,9 +43,11 @@ button { border: 0; background: none; padding: 0; cursor: pointer; touch-action:
 .ver { margin-left: auto; color: var(--muted); font-size: 13px; padding: 10px 0 10px 12px; }
 /* Menu in basso: una voce per sezione */
 .secname { margin: -12px 0 16px; color: var(--muted); font-size: 15px; font-weight: 600; }
-body.has-tabs .app { padding-bottom: calc(env(safe-area-inset-bottom) + 96px); }
+/* Con il menu: la pagina scorre dentro, la barra resta in fondo (niente position: fixed, che su iPhone si sposta) */
+body.has-tabs { height: 100%; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+body.has-tabs .app { flex: 1 1 auto; min-height: 0; width: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding-bottom: 24px; }
 .tabbar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  position: relative; z-index: 10; flex: none; width: 100%;
   display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
   max-width: 480px; margin: 0 auto;
   padding: 8px 12px calc(env(safe-area-inset-bottom) + 8px);
@@ -132,11 +134,13 @@ h2 { margin: 26px 0 10px; font-size: 13px; font-weight: 700; text-transform: upp
 .calhead b { font-size: 17px; text-transform: capitalize; }
 .dow, .grid { display: grid; grid-template-columns: repeat(7, 1fr); }
 .dow span { text-align: center; color: var(--muted); font-size: 12px; font-weight: 700; padding: 4px 0 6px; }
-.grid { row-gap: 4px; }
+.grid { row-gap: 2px; }
 .day { position: relative; aspect-ratio: 1; display: grid; place-items: center; border-radius: 12px; font-size: 15px; font-variant-numeric: tabular-nums; color: var(--muted); }
 .day.has { color: var(--text); font-weight: 700; }
-.day i { position: absolute; left: 50%; bottom: 5px; width: 18px; height: 5px; margin-left: -9px; border-radius: 3px; background: var(--dot); }
-.day.today span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; border: 1.5px solid var(--text); }
+.day span { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; }
+.day.has span { box-shadow: var(--rings); }
+.day.today { color: var(--text); font-weight: 800; }
+.day.today::after { content: ""; position: absolute; bottom: 1px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--text); }
 .day.sel { background: var(--surface-2); }
 .legend { display: flex; gap: 16px; justify-content: center; margin-top: 8px; color: var(--muted); font-size: 12px; }
 .legend span::before { content: ""; display: inline-block; width: 12px; height: 4px; border-radius: 2px; background: var(--c); margin-right: 6px; vertical-align: middle; }
@@ -147,7 +151,12 @@ h2 .link { margin-left: 8px; text-transform: none; letter-spacing: 0; font-size:
 .hrow span { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .hrow b { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hrow small { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.hrow .tt { flex: none; font-size: 12px; font-weight: 700; color: var(--tc); background: color-mix(in srgb, var(--tc) 14%, transparent); border-radius: 99px; padding: 3px 9px; }
 .hrow em { font-style: normal; font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 2px 8px; }
+.bk { position: relative; margin-left: auto; color: var(--muted); }
+.bk svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.bk.warn::after { content: ""; position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--prep); }
+.sbox p { margin: -6px 0 14px; text-align: center; color: var(--muted); font-size: 15px; }
 .backup { background: var(--surface); border-radius: 18px; padding: 14px; }
 .backup p { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
 .backup p b { color: var(--text); }

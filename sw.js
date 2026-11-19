@@ -1,5 +1,5 @@
 /* Sport — service worker: tiene l'app nel telefono così funziona senza rete */
-const VERSION = '0.6.0';           // tenere uguale a VERSION in app.js
+const VERSION = '0.6.1';           // tenere uguale a VERSION in app.js
 const CACHE = 'sport-' + VERSION;
 const FILES = ['./', 'index.html', 'app.css', 'app.js', 'manifest.json', 'img/icona-180.png', 'img/icona-512.png'];
 

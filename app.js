@@ -1,7 +1,7 @@
 /* Sport — timer da allenamento: EMOM, Tabata, AMRAP, For Time, Boxe, MIX, Recupero; allenamenti salvati */
 (() => {
   'use strict';
-  const VERSION = '0.6.0';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.6.1';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92 (raggio dell'anello)
   const PREP = 10;                   // secondi per prepararsi
   const $ = (id) => document.getElementById(id);
@@ -420,7 +420,7 @@
     else if (view === 'done') { body.className = run.result.completed ? 'done' : 'stopped'; root.innerHTML = doneHTML(); }
     $('tabbar').hidden = view !== 'home';
     if (view === 'home') $('tabbar').innerHTML = SECTIONS.map((s) => `<button class="${s.k === data.section ? 'on' : ''}" data-act="sec" data-s="${s.k}" role="tab" aria-selected="${s.k === data.section}">${ICONS[s.k]}<span>${s.name}</span></button>`).join('');
-    window.scrollTo(0, 0);
+    window.scrollTo(0, 0); root.scrollTop = 0;
   }
 
   // Menu in basso: una voce per sezione (poi Stretching e Diario)
@@ -471,7 +471,8 @@
   }
 
   /* ================= Diario ================= */
-  const SEC_COLOR = { train: '#FF453A', martial: '#FFD60A' };
+  const SEC_COLOR = { train: '#FF453A', martial: '#FFD60A', stretch: '#BF5AF2' };
+  const RING_ORDER = ['stretch', 'martial', 'train'];   // dal cerchio più piccolo al più grande
   const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
   const GIORNI = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
   const dkey = (ts) => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
@@ -506,8 +507,14 @@
     for (let d = 1; d <= nDays; d++) {
       const k = diary.y + '-' + String(diary.m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
       const s = byDay[k];
-      const bg = s ? (s.size > 1 ? `linear-gradient(90deg, ${SEC_COLOR.train} 50%, ${SEC_COLOR.martial} 50%)` : SEC_COLOR[[...s][0]]) : '';
-      cells += `<button class="day${s ? ' has' : ''}${k === today ? ' today' : ''}${k === diary.day ? ' sel' : ''}" data-act="day" data-d="${k}"${s ? ` style="--dot:${bg}"` : ''}><span>${d}</span>${s ? '<i></i>' : ''}</button>`;
+      let rings = '';
+      if (s) {
+        // un anello per tipo: dentro stretching, poi arti marziali, fuori allenamento
+        const sh = []; let r = 0;
+        RING_ORDER.filter((x) => s.has(x)).forEach((x) => { r += 1; sh.push(`0 0 0 ${r}px var(--surface)`); r += 2; sh.push(`0 0 0 ${r}px ${SEC_COLOR[x]}`); });
+        rings = sh.join(',');
+      }
+      cells += `<button class="day${s ? ' has' : ''}${k === today ? ' today' : ''}${k === diary.day ? ' sel' : ''}" data-act="day" data-d="${k}"${s ? ` style="--rings:${rings}"` : ''}><span>${d}</span></button>`;
     }
     // elenco
     const list = diary.day ? all.filter((h) => dkey(h.at) === diary.day) : all.slice(0, 20);
@@ -519,14 +526,15 @@
       const bits = [when, fmt(h.secs)];
       if (h.rounds) bits.push(h.rounds + ' round');
       return `<button class="hrow" data-act="hdel" data-at="${h.at}" style="--c:${SEC_COLOR[secOf(h)]}">
-          <i></i><span><b>${esc(h.name)}</b><small>${bits.join(' · ')}</small></span>${h.completed ? '' : '<em>fermato</em>'}
+          <i></i><span><b>${esc(h.name)}</b><small>${bits.join(' · ')}</small></span>${h.completed ? '' : '<em>fermato</em>'}${secOf(h) === 'train' ? `<span class="tt" style="--tc:${TYPES[h.type].color}">${TYPES[h.type].name}</span>` : ''}
         </button>`;
     }).join('') : `<p class="hint">${diary.day ? 'Nessuna sessione in questo giorno.' : 'Le sessioni finite compaiono qui.'}</p>`;
     const days = data.backupAt ? Math.floor((Date.now() - data.backupAt) / 864e5) : null;
     const old = all.length && (days === null || days >= 30);
-    const bkTxt = days === null ? 'mai fatto' : days === 0 ? 'oggi' : days === 1 ? 'ieri' : days + ' giorni fa';
     return `
-      <header class="top"><h1>Diario</h1><button class="ver" id="ver">v${VERSION}</button></header>
+      <header class="top"><h1>Diario</h1>
+        <button class="icon bk${old ? ' warn' : ''}" data-act="backup" aria-label="Backup"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18.5h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 9.6 4.5 4.5 0 0 0 7 18.5z"/><path d="M12 10.5v5.5M9.8 13.8 12 16l2.2-2.2"/></svg></button>
+      </header>
       <div class="stats">
         <div class="stat"><b class="num">${streak()}</b><small>giorni di fila</small></div>
         <div class="stat"><b class="num">${weekMin}</b><small>min questa settimana</small></div>
@@ -544,15 +552,31 @@
       </section>
       <h2>${ltitle}${diary.day ? ' <button class="link" data-act="dayAll">tutte</button>' : ''}</h2>
       <div class="hlist">${rows}</div>
-      <h2>Backup</h2>
-      <div class="backup${old ? ' warn' : ''}">
-        <p>I dati stanno solo su questo telefono. Ultimo backup: <b>${bkTxt}</b>${old ? ' · fanne uno ora' : ''}.</p>
-        <div class="brow">
-          <button class="btn ghost" data-act="export">Esporta</button>
-          <button class="btn ghost" data-act="import">Importa</button>
+      <input type="file" id="impfile" accept="application/json,.json" hidden>`;
+  }
+
+  function openBackup() {
+    const days = data.backupAt ? Math.floor((Date.now() - data.backupAt) / 864e5) : null;
+    const when = days === null ? 'mai fatto' : days === 0 ? 'oggi' : days === 1 ? 'ieri' : days + ' giorni fa';
+    const sh = $('sheet');
+    sh.innerHTML = `
+      <div class="sbox" role="dialog" aria-label="Backup">
+        <h3>Backup</h3>
+        <p>I dati stanno solo su questo telefono. Ultimo: <b>${when}</b></p>
+        <div class="srow" style="grid-template-columns:1fr 1fr">
+          <button class="btn ghost" data-s="imp">Importa</button>
+          <button class="btn primary" data-s="exp">Esporta</button>
         </div>
-        <input type="file" id="impfile" accept="application/json,.json" hidden>
       </div>`;
+    sh.hidden = false;
+    const close = () => { sh.hidden = true; sh.innerHTML = ''; sh.onclick = null; };
+    sh.onclick = (e) => {
+      if (e.target === sh) return close();
+      const b = e.target.closest('[data-s]');
+      if (!b) return;
+      close();
+      if (b.dataset.s === 'exp') exportData(); else $('impfile').click();
+    };
   }
 
   async function exportData() {
@@ -859,8 +883,7 @@
       const at = +b.dataset.at;
       openConfirm('Togliere questa sessione dal diario?', 'Togli', () => { data.history = data.history.filter((h) => h.at !== at); persist(); render(); }, true);
     }
-    else if (a === 'export') exportData();
-    else if (a === 'import') $('impfile').click();
+    else if (a === 'backup') openBackup();
     else if (a === 'saveDone') {
       openSheet(run.name, false, (res, name) => {
         const id = uid();
