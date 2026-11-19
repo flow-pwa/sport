@@ -1,7 +1,7 @@
-/* Sport — passo 1: pagina di prova (timer 10 s + 60 s, beep, voce, schermo acceso, offline) */
+/* Sport — passo 1: pagina di prova (timer 10 s + 60 s, solo suoni, schermo acceso, offline) */
 (() => {
   'use strict';
-  const VERSION = '0.1.0';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.1.1';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92
   const $ = (id) => document.getElementById(id);
   const body = document.body;
@@ -55,7 +55,7 @@
     return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
   }
 
-  const SOUNDS = { short: [880, 0.14], long: [1320, 0.55], half: [660, 0.3] };
+  const SOUNDS = { short: [880, 0.14], long: [1320, 0.55], half: [660, 0.3], tic: [1040, 0.08] };
 
   // Da chiamare dentro un tocco: iOS sblocca l'audio solo così
   function unlockAudio() {
@@ -104,26 +104,9 @@
     }
   }
 
-  /* ---------- Voce ---------- */
-  let itVoice = null;
-  function pickVoice() {
-    if (!('speechSynthesis' in window)) { check('voice', 'bad', 'Non disponibile'); return; }
-    const vs = speechSynthesis.getVoices().filter((v) => /^it/i.test(v.lang));
-    itVoice = vs.find((v) => /premium|enhanced|migliorata/i.test(v.name)) || vs.find((v) => v.localService) || vs[0] || null;
-    check('voice', itVoice ? 'ok' : 'warn', itVoice ? itVoice.name : 'Nessuna voce italiana');
-  }
-  if ('speechSynthesis' in window) {
-    pickVoice();
-    speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', pickVoice);
-  } else pickVoice();
-
-  function say(text) {
-    if (!('speechSynthesis' in window)) return;
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'it-IT'; if (itVoice) u.voice = itVoice;
-    u.rate = 1.05; u.volume = 1;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
+  // Più suoni in fila (es. doppio tic per «10 secondi»)
+  function beeps(kind, times, gap) {
+    for (let k = 0; k < times; k++) setTimeout(() => beep(kind), k * gap);
   }
 
   /* ---------- Schermo sempre acceso ---------- */
@@ -194,16 +177,15 @@
 
     for (const n of [3, 2, 1]) cue(i + ':' + n, n, left, () => { beep('short'); pulse(n === 1); });
     if (p.key === 'work') {
-      cue('work:start', p.secs - 0.05, left, () => { beep('long'); say('Via'); });
-      cue('work:half', 30, left, () => { beep('half'); say('Metà'); });
-      cue('work:10', 10, left, () => say('Dieci secondi'));
+      cue('work:start', p.secs - 0.05, left, () => beep('long'));
+      cue('work:half', 30, left, () => beep('half'));
+      cue('work:10', 10, left, () => beeps('tic', 2, 140));
     }
     if (!run.paused) run.raf = requestAnimationFrame(tick);
   }
 
   function start() {
     unlockAudio();
-    say('Pronti');
     run.on = true; run.paused = false; run.start = Date.now(); run.fired.clear();
     body.classList.remove('idle', 'done', 'paused'); body.classList.add('running');
     $('go').hidden = true; $('stop').hidden = false;
@@ -226,7 +208,6 @@
   function finish() {
     stop(true);
     beep('long'); setTimeout(() => beep('long'), 260);
-    say('Fatto');
     body.classList.add('done');
     $('phase').textContent = 'Fatto';
     $('time').textContent = fmt(PHASES[PHASES.length - 1].secs);
@@ -266,8 +247,11 @@
   ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => holdBtn.addEventListener(ev, holdEnd));
   holdBtn.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  $('tBeep').addEventListener('click', () => { unlockAudio(); setTimeout(() => beep('long'), 80); });
-  $('tVoice').addEventListener('click', () => { pickVoice(); say('Ciao Federico, la voce funziona'); });
+  $('tBeep').addEventListener('click', () => {
+    unlockAudio();
+    setTimeout(() => beeps('short', 3, 1000), 80);
+    setTimeout(() => beep('long'), 3080);
+  });
 
   /* ---------- Offline e aggiornamenti ---------- */
   let wantReload = false;
