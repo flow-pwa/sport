@@ -1,7 +1,7 @@
 /* Sport — passo 1: pagina di prova (timer 10 s + 60 s, solo suoni, schermo acceso, offline) */
 (() => {
   'use strict';
-  const VERSION = '0.1.1';           // tenere uguale a VERSION in sw.js
+  const VERSION = '0.2.0';           // tenere uguale a VERSION in sw.js
   const RING = 578.05;               // 2 * PI * 92
   const $ = (id) => document.getElementById(id);
   const body = document.body;
@@ -50,12 +50,13 @@
     for (let i = 0; i < n; i++) {
       const t = i / rate;
       const env = Math.min(1, t / 0.01) * Math.min(1, (secs - t) / 0.06);
-      v.setInt16(44 + i * 2, Math.sin(2 * Math.PI * freq * t) * env * vol * 32767, true);
+      const s = 0.6 * Math.sin(2 * Math.PI * freq * t) + 0.4 * Math.sin(4 * Math.PI * freq * t);
+      v.setInt16(44 + i * 2, s * env * vol * 32767, true);
     }
     return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
   }
 
-  const SOUNDS = { short: [880, 0.14], long: [1320, 0.55], half: [660, 0.3], tic: [1040, 0.08] };
+  const SOUNDS = { short: [880, 0.2], long: [1320, 0.7], half: [660, 0.35], tic: [1040, 0.09] };
 
   // Da chiamare dentro un tocco: iOS sblocca l'audio solo così
   function unlockAudio() {
@@ -90,13 +91,18 @@
     const [freq, secs] = SOUNDS[kind];
     if ($('amode').value === 'wa' && audio.ctx) {
       if (audio.ctx.state !== 'running') audio.ctx.resume();
-      const t = audio.ctx.currentTime, o = audio.ctx.createOscillator(), g = audio.ctx.createGain();
-      o.type = 'triangle'; o.frequency.value = freq;
+      // nota + ottava sopra: suono più pieno e udibile dall'altoparlante del telefono
+      const t = audio.ctx.currentTime, g = audio.ctx.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.9, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(1, t + 0.008);
+      g.gain.setValueAtTime(1, t + secs * 0.6);
       g.gain.exponentialRampToValueAtTime(0.0001, t + secs);
-      o.connect(g); g.connect(audio.ctx.destination);
-      o.start(t); o.stop(t + secs + 0.03);
+      g.connect(audio.ctx.destination);
+      [[freq, 'square', 0.35], [freq * 2, 'sine', 0.5]].forEach(([f, type, lvl]) => {
+        const o = audio.ctx.createOscillator(), og = audio.ctx.createGain();
+        o.type = type; o.frequency.value = f; og.gain.value = lvl;
+        o.connect(og); og.connect(g); o.start(t); o.stop(t + secs + 0.03);
+      });
     } else if (audio.els[kind]) {
       const el = audio.els[kind];
       el.currentTime = 0;
@@ -177,7 +183,7 @@
 
     for (const n of [3, 2, 1]) cue(i + ':' + n, n, left, () => { beep('short'); pulse(n === 1); });
     if (p.key === 'work') {
-      cue('work:start', p.secs - 0.05, left, () => beep('long'));
+      cue('work:start', p.secs - 0.05, left, () => { beep('long'); pulse(true); });
       cue('work:half', 30, left, () => beep('half'));
       cue('work:10', 10, left, () => beeps('tic', 2, 140));
     }
@@ -214,10 +220,12 @@
     $('next').textContent = 'Prova completata · Via per ripetere';
     $('prog').style.strokeDashoffset = '0';
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    if (wantReload) setTimeout(() => { if (!run.on) location.reload(); }, 4000);
   }
 
   function stop(completed) {
     run.on = false; run.paused = false;
+    if (wantReload && !completed) { location.reload(); return; }
     cancelAnimationFrame(run.raf); clearInterval(run.iv);
     releaseAwake();
     body.classList.remove('running', 'prep', 'work', 'paused', 'pulse', 'flash');
@@ -256,18 +264,11 @@
   /* ---------- Offline e aggiornamenti ---------- */
   let wantReload = false;
   if ('serviceWorker' in navigator) {
+    // Aggiornamento automatico: la nuova versione si installa da sola e la pagina
+    // si ricarica appena il timer è fermo (mai durante un allenamento)
+    const hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.register('sw.js').then((reg) => {
-      const offer = (w) => {
-        $('update').hidden = false;
-        $('updBtn').onclick = () => { wantReload = true; w.postMessage('skip'); };
-      };
-      if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
-      reg.addEventListener('updatefound', () => {
-        const w = reg.installing;
-        w && w.addEventListener('statechange', () => {
-          if (w.state === 'installed' && navigator.serviceWorker.controller) offer(w);
-        });
-      });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update(); });
     }).catch((e) => check('off', 'bad', 'Errore: ' + e.name));
     navigator.serviceWorker.ready.then(() => {
       const ctrl = !!navigator.serviceWorker.controller;
@@ -275,7 +276,7 @@
     });
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (navigator.serviceWorker.controller) check('off', 'ok', 'Pronta');
-      if (wantReload) { wantReload = false; location.reload(); }   // solo dopo "Aggiorna"
+      if (hadController) { if (run.on) wantReload = true; else location.reload(); }
     });
   } else {
     check('off', 'bad', 'Non supportato');
